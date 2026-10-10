@@ -1,0 +1,422 @@
+"use client";
+
+import React, { useState, useEffect, useCallback } from "react";
+import { TraceRunData, TraceNodeData } from "@/lib/types";
+import { FlowCanvas } from "@/components/flow/FlowCanvas";
+import { TraceHeader } from "@/components/layout/TraceHeader";
+import { TraceSidebar } from "@/components/layout/TraceSidebar";
+import { NodeInspectorDrawer } from "@/components/inspector/NodeInspectorDrawer";
+import { TraceAnalyticsDrawer } from "@/components/analytics/TraceAnalyticsDrawer";
+import { TraceUploadModal } from "@/components/modals/TraceUploadModal";
+import { WhatIfPlaygroundModal } from "@/components/modals/WhatIfPlaygroundModal";
+import { TraceDiffModal } from "@/components/modals/TraceDiffModal";
+import { GuardrailsModal } from "@/components/modals/GuardrailsModal";
+import { FleetTelemetryModal } from "@/components/modals/FleetTelemetryModal";
+import { SdkIntegrationModal } from "@/components/modals/SdkIntegrationModal";
+import { DpoExportModal } from "@/components/modals/DpoExportModal";
+import { PromptOptimizerModal } from "@/components/modals/PromptOptimizerModal";
+import { LiveAgentStudioModal } from "@/components/modals/LiveAgentStudioModal";
+import { AutomatedEvalsModal } from "@/components/modals/AutomatedEvalsModal";
+import { ApiKeyManagementModal } from "@/components/modals/ApiKeyManagementModal";
+import { Sparkles, AlertCircle, Ghost } from "lucide-react";
+
+export default function Home() {
+  const [traces, setTraces] = useState<TraceRunData[]>([]);
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+  const [selectedTrace, setSelectedTrace] = useState<TraceRunData | null>(null);
+  const [selectedNode, setSelectedNode] = useState<TraceNodeData | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  // Modals state
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [analyticsDrawerOpen, setAnalyticsDrawerOpen] = useState(false);
+  const [whatIfModalOpen, setWhatIfModalOpen] = useState(false);
+  const [diffModalOpen, setDiffModalOpen] = useState(false);
+  const [guardrailsModalOpen, setGuardrailsModalOpen] = useState(false);
+  const [fleetModalOpen, setFleetModalOpen] = useState(false);
+  const [sdkModalOpen, setSdkModalOpen] = useState(false);
+  const [dpoModalOpen, setDpoModalOpen] = useState(false);
+  const [optimizerModalOpen, setOptimizerModalOpen] = useState(false);
+  const [studioModalOpen, setStudioModalOpen] = useState(false);
+  const [evalsModalOpen, setEvalsModalOpen] = useState(false);
+  const [keysModalOpen, setKeysModalOpen] = useState(false);
+  const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+
+  // Fetch all trace runs
+  const fetchTraces = useCallback(async (selectId?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch("/api/traces");
+      if (!res.ok) throw new Error("Failed to load traces from database");
+      const data: TraceRunData[] = await res.json();
+      setTraces(data);
+
+      if (data.length > 0) {
+        const targetId = selectId || selectedTraceId;
+        const matched = data.find((t) => t.id === targetId);
+        const traceObj = matched || data[0];
+
+        setSelectedTraceId(traceObj.id);
+        setSelectedTrace(traceObj);
+        setSelectedNode(null);
+      } else {
+        setSelectedTrace(null);
+        setSelectedTraceId(null);
+      }
+    } catch (err: any) {
+      console.warn("Failed to fetch traces:", err);
+      setError(err.message || "Failed to fetch traces");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedTraceId]);
+
+  // Fetch detailed trace with all nodes and edges (with instant cache & safe fallback)
+  const fetchTraceDetails = async (id: string) => {
+    try {
+      const existing = traces.find((t) => t.id === id);
+      if (existing && Array.isArray(existing.nodes) && existing.nodes.length > 0) {
+        setSelectedTrace(existing);
+        setSelectedTraceId(id);
+        setSelectedNode(null);
+        return;
+      }
+
+      const res = await fetch(`/api/traces/${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        console.warn(`Trace ${id} not found, falling back.`);
+        if (traces.length > 0) {
+          setSelectedTrace(traces[0]);
+          setSelectedTraceId(traces[0].id);
+          setSelectedNode(null);
+        }
+        return;
+      }
+      const data: TraceRunData = await res.json();
+      setSelectedTrace(data);
+      setSelectedTraceId(id);
+      setSelectedNode(null);
+    } catch (err: any) {
+      console.warn("Could not load trace details:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTraces();
+  }, []);
+
+  // Real-Time Server-Sent Events (SSE) Stream Listener
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource("/api/traces/live");
+
+      eventSource.addEventListener("connected", () => {
+        setIsLiveConnected(true);
+      });
+
+      eventSource.addEventListener("trace_update", (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.event === "TRACE_START" && payload.trace) {
+            setTraces((prev) => [payload.trace, ...prev]);
+            setSelectedTraceId((curr) => curr || payload.trace.id);
+            setSelectedTrace((curr) => curr || payload.trace);
+          } else if (payload.event === "NODE_ADDED" && payload.node) {
+            const { traceId, node, edge } = payload;
+            setSelectedTrace((prev) => {
+              if (!prev || prev.id !== traceId) return prev;
+              const currentNodes = Array.isArray(prev.nodes) ? prev.nodes : [];
+              const currentEdges = Array.isArray(prev.edges) ? prev.edges : [];
+              if (currentNodes.some((n) => n.nodeId === node.nodeId)) return prev;
+
+              return {
+                ...prev,
+                nodes: [...currentNodes, node],
+                edges: edge ? [...currentEdges, edge] : currentEdges,
+                ghostBranchCount: node.isGhost ? (prev.ghostBranchCount || 0) + 1 : prev.ghostBranchCount,
+              };
+            });
+
+            setTraces((prev) =>
+              prev.map((t) => {
+                if (t.id !== traceId) return t;
+                const existingNodes = Array.isArray(t.nodes) ? t.nodes : [];
+                if (existingNodes.some((n) => n.nodeId === node.nodeId)) return t;
+                return {
+                  ...t,
+                  nodes: [...existingNodes, node],
+                  edges: edge && Array.isArray(t.edges) ? [...t.edges, edge] : t.edges,
+                  ghostBranchCount: node.isGhost ? (t.ghostBranchCount || 0) + 1 : t.ghostBranchCount,
+                };
+              })
+            );
+          } else if (payload.event === "TRACE_END") {
+            const { traceId, status } = payload;
+            setTraces((prev) =>
+              prev.map((t) => (t.id === traceId ? { ...t, status: status || "COMPLETED" } : t))
+            );
+            setSelectedTrace((prev) =>
+              prev && prev.id === traceId ? { ...prev, status: status || "COMPLETED" } : prev
+            );
+          }
+        } catch (err) {
+          console.warn("Failed to parse live trace SSE payload:", err);
+        }
+      });
+
+      eventSource.onerror = () => {
+        setIsLiveConnected(false);
+      };
+    } catch (err) {
+      console.warn("Failed to initialize SSE EventSource:", err);
+    }
+
+    return () => {
+      if (eventSource) eventSource.close();
+    };
+  }, []);
+
+  const handleSelectTrace = (id: string) => {
+    const existing = traces.find((t) => t.id === id);
+    if (existing && Array.isArray(existing.nodes) && existing.nodes.length > 0) {
+      setSelectedTrace(existing);
+      setSelectedTraceId(id);
+      setSelectedNode(null);
+      return;
+    }
+    setSelectedTraceId(id);
+    fetchTraceDetails(id);
+  };
+
+  const handleDeleteTrace = async (id: string) => {
+    try {
+      await fetch(`/api/traces/${id}`, { method: "DELETE" });
+      const remaining = traces.filter((t) => t.id !== id);
+      setTraces(remaining);
+      if (remaining.length > 0) {
+        if (selectedTraceId === id) {
+          handleSelectTrace(remaining[0].id);
+        }
+      } else {
+        setSelectedTrace(null);
+        setSelectedTraceId(null);
+      }
+    } catch (err) {
+      console.warn("Failed to delete trace", err);
+    }
+  };
+
+  const handleReloadSeed = async () => {
+    try {
+      setIsSeeding(true);
+      setSelectedTrace(null);
+      setSelectedTraceId(null);
+      await fetch("/api/traces/seed?reset=true", { method: "POST" });
+      await fetchTraces();
+    } catch (err) {
+      console.warn("Failed to re-seed traces", err);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const handleOpenFork = (node: TraceNodeData) => {
+    setNodeToFork(node);
+    setWhatIfModalOpen(true);
+  };
+
+  return (
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#070b12] text-slate-100 font-sans">
+      {/* Top Header */}
+      <TraceHeader
+        traces={traces}
+        selectedTrace={selectedTrace}
+        onSelectTrace={handleSelectTrace}
+        onOpenUpload={() => setUploadModalOpen(true)}
+        onOpenAnalytics={() => setAnalyticsDrawerOpen(true)}
+        onOpenDiff={() => setDiffModalOpen(true)}
+        onOpenGuardrails={() => setGuardrailsModalOpen(true)}
+        onOpenFleet={() => setFleetModalOpen(true)}
+        onOpenSdk={() => setSdkModalOpen(true)}
+        onOpenDpo={() => setDpoModalOpen(true)}
+        onOpenOptimizer={() => setOptimizerModalOpen(true)}
+        onOpenStudio={() => setStudioModalOpen(true)}
+        onOpenEvals={() => setEvalsModalOpen(true)}
+        onOpenKeys={() => setKeysModalOpen(true)}
+        onReloadSeed={handleReloadSeed}
+        isSeeding={isSeeding}
+        isLiveConnected={isLiveConnected}
+      />
+
+      {/* Main Workspace */}
+      <div className="flex flex-1 w-full h-[calc(100vh-64px)] relative overflow-hidden">
+        {/* Left Sidebar */}
+        <TraceSidebar
+          traces={traces}
+          selectedTraceId={selectedTraceId}
+          onSelectTrace={handleSelectTrace}
+          onDeleteTrace={handleDeleteTrace}
+          onOpenUpload={() => setUploadModalOpen(true)}
+        />
+
+        {/* Center / Canvas Area */}
+        <main className="flex-1 h-full relative overflow-hidden flex flex-col">
+          {loading && !selectedTrace ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400">
+              <Ghost className="w-10 h-10 text-purple-400 animate-bounce" />
+              <p className="text-sm font-medium">Connecting to Prisma database &amp; loading execution traces...</p>
+            </div>
+          ) : error ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-rose-400 p-6 text-center">
+              <AlertCircle className="w-8 h-8" />
+              <p className="text-sm">{error}</p>
+              <button
+                onClick={() => fetchTraces()}
+                className="px-4 py-2 rounded-lg bg-slate-800 text-slate-200 text-xs hover:bg-slate-700"
+              >
+                Retry
+              </button>
+            </div>
+          ) : selectedTrace ? (
+            <FlowCanvas
+              trace={selectedTrace}
+              onSelectNode={setSelectedNode}
+              selectedNodeId={selectedNode?.nodeId}
+              onForkNode={handleOpenFork}
+            />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-slate-500">
+              <Ghost className="w-12 h-12 text-slate-600" />
+              <div className="text-center">
+                <h3 className="text-sm font-semibold text-slate-300">No Traces in Workspace</h3>
+                <p className="text-xs text-slate-500 mt-1">Import a .zip archive or restore sample traces</p>
+              </div>
+              <button
+                onClick={handleReloadSeed}
+                className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
+              >
+                Load Demo Multi-Agent Traces
+              </button>
+            </div>
+          )}
+
+          {/* Node Inspector Drawer */}
+          <NodeInspectorDrawer
+            node={selectedNode}
+            onClose={() => setSelectedNode(null)}
+            onForkNode={handleOpenFork}
+          />
+        </main>
+      </div>
+
+      {/* Analytics Drawer (Recharts) */}
+      <TraceAnalyticsDrawer
+        trace={selectedTrace}
+        isOpen={analyticsDrawerOpen}
+        onClose={() => setAnalyticsDrawerOpen(false)}
+      />
+
+      {/* Upload ZIP / JSON Modal (JSZip) */}
+      <TraceUploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onUploadSuccess={(newId) => {
+          fetchTraces(newId);
+        }}
+      />
+
+      {/* Counterfactual What-If Playground Modal */}
+      <WhatIfPlaygroundModal
+        isOpen={whatIfModalOpen}
+        onClose={() => {
+          setWhatIfModalOpen(false);
+          setNodeToFork(null);
+        }}
+        parentNode={nodeToFork}
+        traceId={selectedTraceId}
+        onForkCreated={() => {
+          if (selectedTraceId) fetchTraceDetails(selectedTraceId);
+        }}
+      />
+
+      {/* Trace A/B Diff Modal */}
+      <TraceDiffModal
+        isOpen={diffModalOpen}
+        onClose={() => setDiffModalOpen(false)}
+        traces={traces}
+        currentTraceId={selectedTraceId}
+      />
+
+      {/* Guardrails Safety Policy Modal */}
+      <GuardrailsModal
+        isOpen={guardrailsModalOpen}
+        onClose={() => setGuardrailsModalOpen(false)}
+        trace={selectedTrace}
+        onSelectNode={(nodeId) => {
+          const found = selectedTrace?.nodes?.find((n) => n.nodeId === nodeId);
+          if (found) setSelectedNode(found);
+        }}
+      />
+
+      {/* Fleet-Wide Telemetry Modal */}
+      <FleetTelemetryModal
+        isOpen={fleetModalOpen}
+        onClose={() => setFleetModalOpen(false)}
+        traces={traces}
+        onSelectTrace={handleSelectTrace}
+      />
+
+      {/* Agent Framework SDK Modal */}
+      <SdkIntegrationModal
+        isOpen={sdkModalOpen}
+        onClose={() => setSdkModalOpen(false)}
+        onTraceCreated={(newId) => {
+          fetchTraces(newId);
+        }}
+      />
+
+      {/* DPO Dataset Exporter Modal */}
+      <DpoExportModal
+        isOpen={dpoModalOpen}
+        onClose={() => setDpoModalOpen(false)}
+        traces={traces}
+        currentTrace={selectedTrace}
+      />
+
+      {/* AI Prompt Optimizer Modal */}
+      <PromptOptimizerModal
+        isOpen={optimizerModalOpen}
+        onClose={() => setOptimizerModalOpen(false)}
+        trace={selectedTrace}
+      />
+
+      {/* Live Agent Execution Studio Modal */}
+      <LiveAgentStudioModal
+        isOpen={studioModalOpen}
+        onClose={() => setStudioModalOpen(false)}
+        onTraceCreated={(newId) => {
+          fetchTraces(newId);
+        }}
+      />
+
+      {/* Automated Evals & LLM-as-a-Judge Modal */}
+      <AutomatedEvalsModal
+        isOpen={evalsModalOpen}
+        onClose={() => setEvalsModalOpen(false)}
+        trace={selectedTrace}
+      />
+
+      {/* Multi-Tenant API Key Management Modal */}
+      <ApiKeyManagementModal
+        isOpen={keysModalOpen}
+        onClose={() => setKeysModalOpen(false)}
+      />
+    </div>
+  );
+}

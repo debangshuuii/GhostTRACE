@@ -1,0 +1,95 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model TraceRun {
+  id               String            @id @default(cuid())
+  title            String
+  agentName        String
+  model            String
+  status           String            @default("COMPLETED") // COMPLETED, FAILED, RUNNING, PRUNED
+  totalTokens      Int               @default(0)
+  promptTokens     Int               @default(0)
+  completionTokens Int               @default(0)
+  reasoningTokens  Int               @default(0)
+  costEstimate     Float             @default(0.0)
+  durationMs       Int               @default(0)
+  ghostBranchCount Int               @default(0)
+  tags             String            @default("[]") // JSON stringified string[]
+  description      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  nodes            TraceNode[]
+  edges            TraceEdge[]
+  evaluations      TraceEvaluation[]
+}
+
+model TraceNode {
+  id              String    @id @default(cuid())
+  traceRunId      String
+  nodeId          String
+  stepIndex       Int
+  type            String    // USER_PROMPT, THINKING, TOOL_CALL, TOOL_RESULT, LLM_RESPONSE, GHOST_REJECTED, SUBAGENT_SPAWN, ERROR
+  label           String
+  role            String?
+  content         String
+  rawInput        String?
+  rawOutput       String?
+  latencyMs       Int?      @default(0)
+  tokens          Int?      @default(0)
+  cost            Float?    @default(0.0)
+  status          String    @default("SUCCESS") // SUCCESS, FAILED, PRUNED, ROLLED_BACK
+  isGhost         Boolean   @default(false)
+  ghostReason     String?
+  confidenceScore Float?
+  positionX       Float     @default(0)
+  positionY       Float     @default(0)
+  createdAt       DateTime  @default(now())
+  traceRun        TraceRun  @relation(fields: [traceRunId], references: [id], onDelete: Cascade)
+
+  @@index([traceRunId])
+}
+
+model TraceEdge {
+  id         String   @id @default(cuid())
+  traceRunId String
+  edgeId     String
+  source     String
+  target     String
+  type       String   @default("DEFAULT") // DEFAULT, BRANCH, GHOST_PRUNED, FALLBACK, SUBAGENT
+  label      String?
+  isGhost    Boolean  @default(false)
+  traceRun   TraceRun @relation(fields: [traceRunId], references: [id], onDelete: Cascade)
+
+  @@index([traceRunId])
+}
+
+model TraceEvaluation {
+  id         String   @id @default(cuid())
+  traceRunId String
+  evaluator  String   @default("Human")
+  rating     Int      @default(5)
+  verdict    String   @default("OPTIMAL") // OPTIMAL, SUBOPTIMAL, FAILED, HALLUCINATION_DETECTED
+  feedback   String
+  createdAt  DateTime @default(now())
+  traceRun   TraceRun @relation(fields: [traceRunId], references: [id], onDelete: Cascade)
+
+  @@index([traceRunId])
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyPreview  String    // e.g. gt_live_...38f1
+  keySecret   String    @unique
+  environment String    @default("production") // production, staging, development
+  status      String    @default("ACTIVE")     // ACTIVE, REVOKED
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+}
+
