@@ -7,12 +7,25 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model Workspace {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  environment String     @default("production") // production, staging, development
+  createdAt   DateTime   @default(now())
+  traces      TraceRun[]
+  apiKeys     ApiKey[]
+}
+
 model TraceRun {
   id               String            @id @default(cuid())
+  workspaceId      String?
   title            String
   agentName        String
   model            String
-  status           String            @default("COMPLETED") // COMPLETED, FAILED, RUNNING, PRUNED
+  status           String            @default("COMPLETED") // COMPLETED, FAILED, RUNNING, PRUNED, PAUSED
+  isPaused         Boolean           @default(false)
+  pausedStep       Int?
   totalTokens      Int               @default(0)
   promptTokens     Int               @default(0)
   completionTokens Int               @default(0)
@@ -24,33 +37,38 @@ model TraceRun {
   description      String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  workspace        Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   nodes            TraceNode[]
   edges            TraceEdge[]
   evaluations      TraceEvaluation[]
+
+  @@index([workspaceId])
 }
 
 model TraceNode {
-  id              String    @id @default(cuid())
-  traceRunId      String
-  nodeId          String
-  stepIndex       Int
-  type            String    // USER_PROMPT, THINKING, TOOL_CALL, TOOL_RESULT, LLM_RESPONSE, GHOST_REJECTED, SUBAGENT_SPAWN, ERROR
-  label           String
-  role            String?
-  content         String
-  rawInput        String?
-  rawOutput       String?
-  latencyMs       Int?      @default(0)
-  tokens          Int?      @default(0)
-  cost            Float?    @default(0.0)
-  status          String    @default("SUCCESS") // SUCCESS, FAILED, PRUNED, ROLLED_BACK
-  isGhost         Boolean   @default(false)
-  ghostReason     String?
-  confidenceScore Float?
-  positionX       Float     @default(0)
-  positionY       Float     @default(0)
-  createdAt       DateTime  @default(now())
-  traceRun        TraceRun  @relation(fields: [traceRunId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(cuid())
+  traceRunId          String
+  nodeId              String
+  stepIndex           Int
+  type                String    // USER_PROMPT, THINKING, TOOL_CALL, TOOL_RESULT, LLM_RESPONSE, GHOST_REJECTED, SUBAGENT_SPAWN, ERROR
+  label               String
+  role                String?
+  content             String
+  rawInput            String?
+  rawOutput           String?
+  latencyMs           Int?      @default(0)
+  tokens              Int?      @default(0)
+  cost                Float?    @default(0.0)
+  status              String    @default("SUCCESS") // SUCCESS, FAILED, PRUNED, ROLLED_BACK, PAUSED
+  isGhost             Boolean   @default(false)
+  ghostReason         String?
+  confidenceScore     Float?
+  positionX           Float     @default(0)
+  positionY           Float     @default(0)
+  interventionInput   String?   // Operator override content
+  interventionVerdict String?   // RESUMED, OVERRIDDEN, VETOED
+  createdAt           DateTime  @default(now())
+  traceRun            TraceRun  @relation(fields: [traceRunId], references: [id], onDelete: Cascade)
 
   @@index([traceRunId])
 }
@@ -83,13 +101,16 @@ model TraceEvaluation {
 }
 
 model ApiKey {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
+  workspaceId String?
   name        String
-  keyPreview  String    // e.g. gt_live_...38f1
-  keySecret   String    @unique
-  environment String    @default("production") // production, staging, development
-  status      String    @default("ACTIVE")     // ACTIVE, REVOKED
+  keyPreview  String     // e.g. gt_live_...38f1
+  keySecret   String     @unique
+  environment String     @default("production") // production, staging, development
+  status      String     @default("ACTIVE")     // ACTIVE, REVOKED
   lastUsedAt  DateTime?
-  createdAt   DateTime  @default(now())
-}
+  createdAt   DateTime   @default(now())
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
+  @@index([workspaceId])
+}

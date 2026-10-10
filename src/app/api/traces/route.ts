@@ -12,8 +12,15 @@ export async function GET(req: Request) {
     const query = searchParams.get("q")?.toLowerCase();
     const model = searchParams.get("model");
     const status = searchParams.get("status");
+    const workspaceId = searchParams.get("workspaceId");
+
+    const where: any = {};
+    if (workspaceId) {
+      where.workspaceId = workspaceId;
+    }
 
     const traces = await prisma.traceRun.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       include: {
         nodes: {

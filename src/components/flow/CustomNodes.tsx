@@ -22,19 +22,28 @@ const NodeWrapper = ({
   selected,
   className = "",
   isGhost = false,
+  isPaused = false,
 }: {
   children: React.ReactNode;
   selected?: boolean;
   className?: string;
   isGhost?: boolean;
+  isPaused?: boolean;
 }) => (
   <div
     className={`relative min-w-[280px] max-w-[340px] rounded-xl p-3.5 transition-all duration-200 cursor-pointer backdrop-blur-md shadow-xl ${
-      selected
+      isPaused
+        ? "ring-2 ring-amber-400 border-amber-500 bg-amber-950/40 animate-pulse shadow-[0_0_30px_rgba(245,158,11,0.5)]"
+        : selected
         ? "ring-2 ring-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.35)]"
         : "hover:border-slate-500"
     } ${isGhost ? "ghost-node-glow border-purple-500/50 bg-purple-950/20" : className}`}
   >
+    {isPaused && (
+      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-bold text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-lg animate-bounce z-20">
+        <span>⏸ HIT BREAKPOINT</span>
+      </div>
+    )}
     {children}
   </div>
 );
@@ -45,6 +54,7 @@ export const UserPromptNode = memo((props: NodeProps) => {
   return (
     <NodeWrapper
       selected={Boolean(props.selected)}
+      isPaused={node.status === "PAUSED" || Boolean((node as any).isPaused)}
       className="bg-slate-900/90 border border-slate-700/80 text-slate-100"
     >
       <div className="flex items-center justify-between gap-2 mb-2">
@@ -75,6 +85,7 @@ export const ThinkingNode = memo((props: NodeProps) => {
   return (
     <NodeWrapper
       selected={Boolean(props.selected)}
+      isPaused={node.status === "PAUSED" || Boolean((node as any).isPaused)}
       className="bg-indigo-950/40 border border-indigo-700/50 text-indigo-100 shadow-[0_4px_20px_rgba(79,70,229,0.15)]"
     >
       <Handle
@@ -123,6 +134,7 @@ export const ToolCallNode = memo((props: NodeProps) => {
   return (
     <NodeWrapper
       selected={Boolean(props.selected)}
+      isPaused={node.status === "PAUSED" || Boolean((node as any).isPaused)}
       className="bg-amber-950/30 border border-amber-600/40 text-amber-100"
     >
       <Handle
@@ -172,6 +184,7 @@ export const GhostBranchNode = memo((props: NodeProps) => {
     <NodeWrapper
       selected={Boolean(props.selected)}
       isGhost={true}
+      isPaused={node.status === "PAUSED" || Boolean((node as any).isPaused)}
       className="bg-purple-950/30 border-2 border-dashed border-purple-400/60 text-purple-100"
     >
       <Handle
@@ -228,6 +241,7 @@ export const SubagentSpawnNode = memo((props: NodeProps) => {
   return (
     <NodeWrapper
       selected={Boolean(props.selected)}
+      isPaused={node.status === "PAUSED" || Boolean((node as any).isPaused)}
       className="bg-cyan-950/40 border border-cyan-500/40 text-cyan-100"
     >
       <Handle
@@ -264,6 +278,7 @@ export const LlmResponseNode = memo((props: NodeProps) => {
   return (
     <NodeWrapper
       selected={Boolean(props.selected)}
+      isPaused={node.status === "PAUSED" || Boolean((node as any).isPaused)}
       className="bg-emerald-950/40 border border-emerald-500/50 text-emerald-100 shadow-[0_4px_25px_rgba(16,185,129,0.15)]"
     >
       <Handle

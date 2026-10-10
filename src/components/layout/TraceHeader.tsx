@@ -28,12 +28,24 @@ import {
   Palette,
   Scale,
   Key,
+  Building2,
+  Network,
 } from "lucide-react";
+
+export interface WorkspaceItem {
+  id: string;
+  name: string;
+  slug: string;
+  environment: string;
+}
 
 interface TraceHeaderProps {
   traces: TraceRunData[];
   selectedTrace: TraceRunData | null;
   onSelectTrace: (traceId: string) => void;
+  workspaces?: WorkspaceItem[];
+  selectedWorkspaceId?: string;
+  onSelectWorkspace?: (workspaceId: string) => void;
   onOpenUpload: () => void;
   onOpenAnalytics: () => void;
   onOpenDiff: () => void;
@@ -45,6 +57,9 @@ interface TraceHeaderProps {
   onOpenStudio: () => void;
   onOpenEvals?: () => void;
   onOpenKeys?: () => void;
+  onOpenWaterfall?: () => void;
+  onOpenSwarmTopology?: () => void;
+  onOpenBreakpointIntervention?: () => void;
   onReloadSeed: () => void;
   isSeeding?: boolean;
   isLiveConnected?: boolean;
@@ -54,6 +69,9 @@ export function TraceHeader({
   traces,
   selectedTrace,
   onSelectTrace,
+  workspaces = [],
+  selectedWorkspaceId,
+  onSelectWorkspace,
   onOpenUpload,
   onOpenAnalytics,
   onOpenDiff,
@@ -65,11 +83,15 @@ export function TraceHeader({
   onOpenStudio,
   onOpenEvals,
   onOpenKeys,
+  onOpenWaterfall,
+  onOpenSwarmTopology,
+  onOpenBreakpointIntervention,
   onReloadSeed,
   isSeeding = false,
   isLiveConnected = false,
 }: TraceHeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [theme, setTheme] = useState<"cyber" | "obsidian" | "paper">("cyber");
 
@@ -230,10 +252,84 @@ ${n.content}`
           </div>
         </div>
 
+        {/* Enterprise Workspace Dropdown Selector */}
+        {workspaces && workspaces.length > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => {
+                setWorkspaceDropdownOpen(!workspaceDropdownOpen);
+                setDropdownOpen(false);
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-xs font-medium text-slate-200 transition-colors shadow-sm max-w-[170px]"
+              title="Select Enterprise Workspace Environment"
+            >
+              <Building2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+              <span className="truncate">
+                {workspaces.find((w) => w.id === selectedWorkspaceId)?.name || "All Workspaces"}
+              </span>
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+            </button>
+
+            {workspaceDropdownOpen && (
+              <div className="absolute top-full left-0 mt-2 w-72 rounded-xl bg-[#0c1222] border border-slate-700 shadow-2xl py-2 z-50 animate-in fade-in">
+                <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-800">
+                  <span>Workspaces ({workspaces.length})</span>
+                  <span className="text-[9px] text-purple-400 font-mono">ISOLATED</span>
+                </div>
+                <div className="max-h-60 overflow-y-auto divide-y divide-slate-800/60">
+                  <button
+                    onClick={() => {
+                      onSelectWorkspace?.("");
+                      setWorkspaceDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3.5 py-2 hover:bg-slate-800/60 transition-colors flex items-center justify-between ${
+                      !selectedWorkspaceId ? "bg-purple-950/40 text-purple-300 font-medium" : "text-slate-300"
+                    }`}
+                  >
+                    <span className="text-xs">🌐 All Workspaces</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">GLOBAL</span>
+                  </button>
+                  {workspaces.map((ws) => (
+                    <button
+                      key={ws.id}
+                      onClick={() => {
+                        onSelectWorkspace?.(ws.id);
+                        setWorkspaceDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 hover:bg-slate-800/60 transition-colors flex items-center justify-between ${
+                        selectedWorkspaceId === ws.id ? "bg-purple-950/40 text-purple-300" : "text-slate-300"
+                      }`}
+                    >
+                      <div>
+                        <div className="text-xs font-medium truncate max-w-[160px]">{ws.name}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">/{ws.slug}</div>
+                      </div>
+                      <span
+                        className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase ${
+                          ws.environment === "production"
+                            ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                            : ws.environment === "staging"
+                            ? "bg-amber-950 text-amber-400 border border-amber-800"
+                            : "bg-sky-950 text-sky-400 border border-sky-800"
+                        }`}
+                      >
+                        {ws.environment}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Trace Dropdown Selector */}
         <div className="relative">
           <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
+            onClick={() => {
+              setDropdownOpen(!dropdownOpen);
+              setWorkspaceDropdownOpen(false);
+            }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800/90 border border-slate-700/80 text-xs font-medium text-slate-200 transition-colors shadow-sm max-w-[210px]"
           >
             <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
@@ -274,23 +370,36 @@ ${n.content}`
         </div>
       </div>
 
-      {/* Center Live KPI Chips */}
-      {selectedTrace && (
-        <div className="hidden 2xl:flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/40 border border-purple-500/40 text-purple-300 text-xs shadow-[0_0_12px_rgba(168,85,247,0.2)]">
-            <Ghost className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
-            <span className="font-semibold">{selectedTrace.ghostBranchCount}</span>
-            <span className="text-[11px] text-purple-300/80">Ghost Paths Pruned</span>
-          </div>
+      {/* Center Live KPI Chips & Breakpoint Status */}
+      <div className="flex items-center gap-2">
+        {Boolean(selectedTrace?.isPaused || selectedTrace?.status === "PAUSED") && (
+          <button
+            onClick={onOpenBreakpointIntervention}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/80 text-amber-300 text-xs font-bold animate-pulse hover:bg-amber-500/30 transition-all shadow-[0_0_15px_rgba(245,158,11,0.35)]"
+            title="Breakpoint Intercepted! Click to Resume, Override or Veto"
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            <span>HIT BREAKPOINT (INTERVENE)</span>
+          </button>
+        )}
 
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-700/80 text-slate-300 text-xs font-mono">
-            <span>{selectedTrace.totalTokens.toLocaleString()} tok</span>
-            <span className="text-indigo-400 text-[11px]">
-              ({Math.round((selectedTrace.reasoningTokens / (selectedTrace.totalTokens || 1)) * 100)}% CoT)
-            </span>
+        {selectedTrace && (
+          <div className="hidden 2xl:flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/40 border border-purple-500/40 text-purple-300 text-xs shadow-[0_0_12px_rgba(168,85,247,0.2)]">
+              <Ghost className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+              <span className="font-semibold">{selectedTrace.ghostBranchCount}</span>
+              <span className="text-[11px] text-purple-300/80">Ghost Paths Pruned</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-700/80 text-slate-300 text-xs font-mono">
+              <span>{selectedTrace.totalTokens.toLocaleString()} tok</span>
+              <span className="text-indigo-400 text-[11px]">
+                ({Math.round((selectedTrace.reasoningTokens / (selectedTrace.totalTokens || 1)) * 100)}% CoT)
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Right Action Tools Bar */}
       <div className="flex items-center gap-1.5">
@@ -382,6 +491,26 @@ ${n.content}`
         >
           <Key className="w-3.5 h-3.5 text-cyan-400" />
           <span className="hidden lg:inline">API Keys</span>
+        </button>
+
+        {/* Waterfall Gantt Timeline Profiler */}
+        <button
+          onClick={onOpenWaterfall}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-sky-950/70 hover:bg-sky-900/80 text-sky-300 border border-sky-600/60 text-xs font-semibold transition-all shadow-[0_0_12px_rgba(14,165,233,0.25)]"
+          title="Agent Gantt Waterfall Timeline & Latency Profiler"
+        >
+          <Clock className="w-3.5 h-3.5 text-sky-400" />
+          <span className="hidden xl:inline">Waterfall</span>
+        </button>
+
+        {/* Swarm Infinite Loop & Topology Matrix */}
+        <button
+          onClick={onOpenSwarmTopology}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-950/70 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-600/60 text-xs font-semibold transition-all shadow-[0_0_12px_rgba(99,102,241,0.25)]"
+          title="Multi-Agent Loop Detector & Communication Matrix"
+        >
+          <Network className="w-3.5 h-3.5 text-indigo-400" />
+          <span className="hidden xl:inline">Swarm Matrix</span>
         </button>
 
         {/* Telemetry Charts */}

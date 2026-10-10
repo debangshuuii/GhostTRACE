@@ -18,6 +18,10 @@ import { PromptOptimizerModal } from "@/components/modals/PromptOptimizerModal";
 import { LiveAgentStudioModal } from "@/components/modals/LiveAgentStudioModal";
 import { AutomatedEvalsModal } from "@/components/modals/AutomatedEvalsModal";
 import { ApiKeyManagementModal } from "@/components/modals/ApiKeyManagementModal";
+import { BreakpointInterventionModal } from "@/components/modals/BreakpointInterventionModal";
+import { WaterfallTimelineDrawer } from "@/components/analytics/WaterfallTimelineDrawer";
+import { SwarmTopologyModal } from "@/components/modals/SwarmTopologyModal";
+import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
 
 export default function Home() {
@@ -25,6 +29,10 @@ export default function Home() {
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [selectedTrace, setSelectedTrace] = useState<TraceRunData | null>(null);
   const [selectedNode, setSelectedNode] = useState<TraceNodeData | null>(null);
+
+  // Workspaces state
+  const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>([]);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>("");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,15 +51,38 @@ export default function Home() {
   const [studioModalOpen, setStudioModalOpen] = useState(false);
   const [evalsModalOpen, setEvalsModalOpen] = useState(false);
   const [keysModalOpen, setKeysModalOpen] = useState(false);
+  const [waterfallDrawerOpen, setWaterfallDrawerOpen] = useState(false);
+  const [swarmModalOpen, setSwarmModalOpen] = useState(false);
+  const [breakpointModalOpen, setBreakpointModalOpen] = useState(false);
+  const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
   const [isLiveConnected, setIsLiveConnected] = useState(false);
 
-  // Fetch all trace runs
-  const fetchTraces = useCallback(async (selectId?: string) => {
+  // Fetch workspaces
+  const fetchWorkspaces = useCallback(async () => {
+    try {
+      const res = await fetch("/api/workspaces");
+      if (res.ok) {
+        const data = await res.json();
+        setWorkspaces(data);
+      }
+    } catch (err) {
+      console.warn("Failed to load workspaces:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchWorkspaces();
+  }, [fetchWorkspaces]);
+
+  // Fetch all trace runs (optionally filtered by workspaceId)
+  const fetchTraces = useCallback(async (selectId?: string, workspaceId?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch("/api/traces");
+      const wsId = workspaceId !== undefined ? workspaceId : selectedWorkspaceId;
+      const url = wsId ? `/api/traces?workspaceId=${encodeURIComponent(wsId)}` : "/api/traces";
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to load traces from database");
       const data: TraceRunData[] = await res.json();
       setTraces(data);
@@ -74,7 +105,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [selectedTraceId]);
+  }, [selectedTraceId, selectedWorkspaceId]);
 
   // Fetch detailed trace with all nodes and edges (with instant cache & safe fallback)
   const fetchTraceDetails = async (id: string) => {
@@ -164,6 +195,29 @@ export default function Home() {
             setSelectedTrace((prev) =>
               prev && prev.id === traceId ? { ...prev, status: status || "COMPLETED" } : prev
             );
+          } else if (payload.event === "BREAKPOINT_HIT") {
+            const { traceId, node } = payload;
+            if (node) {
+              setPausedNode(node);
+              setBreakpointModalOpen(true);
+              setSelectedTrace((prev) =>
+                prev && prev.id === traceId
+                  ? {
+                      ...prev,
+                      isPaused: true,
+                      status: "PAUSED",
+                      nodes: (prev.nodes || []).map((n) =>
+                        n.nodeId === node.nodeId ? { ...n, status: "PAUSED" } : n
+                      ),
+                    }
+                  : prev
+              );
+              setTraces((prev) =>
+                prev.map((t) =>
+                  t.id === traceId ? { ...t, isPaused: true, status: "PAUSED" } : t
+                )
+              );
+            }
           }
         } catch (err) {
           console.warn("Failed to parse live trace SSE payload:", err);
@@ -181,6 +235,21 @@ export default function Home() {
       if (eventSource) eventSource.close();
     };
   }, []);
+
+  const handleSelectWorkspace = (workspaceId: string) => {
+    setSelectedWorkspaceId(workspaceId);
+    fetchTraces(undefined, workspaceId);
+  };
+
+  const handleOpenBreakpointIntervention = () => {
+    if (!selectedTrace) return;
+    const paused =
+      selectedTrace.nodes?.find((n) => n.status === "PAUSED") ||
+      selectedTrace.nodes?.[selectedTrace.nodes.length - 1] ||
+      null;
+    setPausedNode(paused);
+    setBreakpointModalOpen(true);
+  };
 
   const handleSelectTrace = (id: string) => {
     const existing = traces.find((t) => t.id === id);
@@ -238,6 +307,9 @@ export default function Home() {
         traces={traces}
         selectedTrace={selectedTrace}
         onSelectTrace={handleSelectTrace}
+        workspaces={workspaces}
+        selectedWorkspaceId={selectedWorkspaceId}
+        onSelectWorkspace={handleSelectWorkspace}
         onOpenUpload={() => setUploadModalOpen(true)}
         onOpenAnalytics={() => setAnalyticsDrawerOpen(true)}
         onOpenDiff={() => setDiffModalOpen(true)}
@@ -249,6 +321,9 @@ export default function Home() {
         onOpenStudio={() => setStudioModalOpen(true)}
         onOpenEvals={() => setEvalsModalOpen(true)}
         onOpenKeys={() => setKeysModalOpen(true)}
+        onOpenWaterfall={() => setWaterfallDrawerOpen(true)}
+        onOpenSwarmTopology={() => setSwarmModalOpen(true)}
+        onOpenBreakpointIntervention={handleOpenBreakpointIntervention}
         onReloadSeed={handleReloadSeed}
         isSeeding={isSeeding}
         isLiveConnected={isLiveConnected}
@@ -416,6 +491,36 @@ export default function Home() {
       <ApiKeyManagementModal
         isOpen={keysModalOpen}
         onClose={() => setKeysModalOpen(false)}
+      />
+
+      {/* Waterfall Timeline & Latency Profiler Drawer */}
+      <WaterfallTimelineDrawer
+        trace={selectedTrace}
+        isOpen={waterfallDrawerOpen}
+        onClose={() => setWaterfallDrawerOpen(false)}
+        onSelectNode={(node) => setSelectedNode(node)}
+      />
+
+      {/* Swarm Loop Detector & Communication Matrix Modal */}
+      <SwarmTopologyModal
+        trace={selectedTrace}
+        isOpen={swarmModalOpen}
+        onClose={() => setSwarmModalOpen(false)}
+      />
+
+      {/* Live Breakpoint Human-in-the-Loop Intervention Modal */}
+      <BreakpointInterventionModal
+        isOpen={breakpointModalOpen}
+        onClose={() => {
+          setBreakpointModalOpen(false);
+          setPausedNode(null);
+        }}
+        traceId={selectedTraceId}
+        node={pausedNode}
+        onInterventionComplete={() => {
+          if (selectedTraceId) fetchTraceDetails(selectedTraceId);
+          fetchTraces(selectedTraceId || undefined);
+        }}
       />
     </div>
   );

@@ -10,7 +10,7 @@ export type NodeType =
   | "SUBAGENT_SPAWN"
   | "ERROR";
 
-export type NodeStatus = "SUCCESS" | "FAILED" | "PRUNED" | "ROLLED_BACK" | "RUNNING" | "ERROR";
+export type NodeStatus = "SUCCESS" | "FAILED" | "PRUNED" | "ROLLED_BACK" | "RUNNING" | "ERROR" | "PAUSED";
 
 export type EdgeType = "DEFAULT" | "BRANCH" | "GHOST_PRUNED" | "FALLBACK" | "SUBAGENT";
 
@@ -35,6 +35,9 @@ export interface TraceNodeData {
   positionY?: number;
   tags?: string[];
   metadata?: Record<string, any>;
+  interventionInput?: string | null;
+  interventionVerdict?: string | null;
+  isPaused?: boolean;
 }
 
 export interface TraceEdgeData {
@@ -47,12 +50,21 @@ export interface TraceEdgeData {
   isGhost?: boolean;
 }
 
+export interface WorkspaceData {
+  id: string;
+  name: string;
+  slug: string;
+  environment: "production" | "staging" | "development" | string;
+  createdAt?: string | Date;
+}
+
 export interface TraceUploadData {
   title?: string;
   agentName?: string;
   model?: string;
   tags?: string[];
   description?: string;
+  workspaceId?: string;
   nodes: TraceNodeData[];
   edges: TraceEdgeData[];
 }
@@ -71,7 +83,10 @@ export interface TraceRunData {
   title: string;
   agentName: string;
   model: string;
-  status: "COMPLETED" | "FAILED" | "RUNNING" | "PRUNED";
+  status: "COMPLETED" | "FAILED" | "RUNNING" | "PRUNED" | "PAUSED";
+  workspaceId?: string | null;
+  isPaused?: boolean;
+  pausedStep?: number | null;
   totalTokens: number;
   promptTokens: number;
   completionTokens: number;
