@@ -15,6 +15,12 @@ services:
       - PORT=3000
     volumes:
       - ghosttrace-data:/app/prisma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/workspaces"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 volumes:
   ghosttrace-data:

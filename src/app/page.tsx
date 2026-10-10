@@ -21,6 +21,7 @@ import { ApiKeyManagementModal } from "@/components/modals/ApiKeyManagementModal
 import { BreakpointInterventionModal } from "@/components/modals/BreakpointInterventionModal";
 import { WaterfallTimelineDrawer } from "@/components/analytics/WaterfallTimelineDrawer";
 import { SwarmTopologyModal } from "@/components/modals/SwarmTopologyModal";
+import { AnomalyDriftModal } from "@/components/modals/AnomalyDriftModal";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
 
@@ -53,6 +54,7 @@ export default function Home() {
   const [keysModalOpen, setKeysModalOpen] = useState(false);
   const [waterfallDrawerOpen, setWaterfallDrawerOpen] = useState(false);
   const [swarmModalOpen, setSwarmModalOpen] = useState(false);
+  const [anomalyModalOpen, setAnomalyModalOpen] = useState(false);
   const [breakpointModalOpen, setBreakpointModalOpen] = useState(false);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
@@ -324,6 +326,7 @@ export default function Home() {
         onOpenWaterfall={() => setWaterfallDrawerOpen(true)}
         onOpenSwarmTopology={() => setSwarmModalOpen(true)}
         onOpenBreakpointIntervention={handleOpenBreakpointIntervention}
+        onOpenAnomalyModal={() => setAnomalyModalOpen(true)}
         onReloadSeed={handleReloadSeed}
         isSeeding={isSeeding}
         isLiveConnected={isLiveConnected}
@@ -521,6 +524,13 @@ export default function Home() {
           if (selectedTraceId) fetchTraceDetails(selectedTraceId);
           fetchTraces(selectedTraceId || undefined);
         }}
+      />
+
+      {/* Operational Drift & Anomaly Modal */}
+      <AnomalyDriftModal
+        isOpen={anomalyModalOpen}
+        onClose={() => setAnomalyModalOpen(false)}
+        trace={selectedTrace}
       />
     </div>
   );

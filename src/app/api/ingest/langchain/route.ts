@@ -131,6 +131,7 @@ export async function POST(req: Request) {
 
     const created = await prisma.traceRun.create({
       data: {
+        workspaceId: auth.apiKey?.workspaceId || (body as any).workspaceId || null,
         title,
         agentName,
         model,

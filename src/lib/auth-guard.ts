@@ -17,6 +17,7 @@ export interface AuthValidationResult {
     name: string;
     environment: string;
     keyPreview: string;
+    workspaceId?: string | null;
   };
 }
 
@@ -91,6 +92,7 @@ export async function validateApiKey(req: Request): Promise<AuthValidationResult
         name: matchedKey.name,
         environment: matchedKey.environment,
         keyPreview: matchedKey.keyPreview,
+        workspaceId: matchedKey.workspaceId,
       },
     };
   } catch (err: any) {

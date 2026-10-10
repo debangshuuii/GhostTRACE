@@ -20,6 +20,7 @@ export async function POST(req: Request) {
 
     const created = await prisma.traceRun.create({
       data: {
+        workspaceId: auth.apiKey?.workspaceId || body.workspaceId || null,
         title: traceData.title || "OpenTelemetry Ingested Trace",
         agentName: traceData.agentName || "OTel Collector",
         model: traceData.model || "otel-service",

@@ -30,7 +30,9 @@ import {
   Key,
   Building2,
   Network,
+  AlertTriangle,
 } from "lucide-react";
+import { detectTraceAnomalies } from "@/lib/anomaly-detector";
 
 export interface WorkspaceItem {
   id: string;
@@ -60,6 +62,7 @@ interface TraceHeaderProps {
   onOpenWaterfall?: () => void;
   onOpenSwarmTopology?: () => void;
   onOpenBreakpointIntervention?: () => void;
+  onOpenAnomalyModal?: () => void;
   onReloadSeed: () => void;
   isSeeding?: boolean;
   isLiveConnected?: boolean;
@@ -86,6 +89,7 @@ export function TraceHeader({
   onOpenWaterfall,
   onOpenSwarmTopology,
   onOpenBreakpointIntervention,
+  onOpenAnomalyModal,
   onReloadSeed,
   isSeeding = false,
   isLiveConnected = false,
@@ -372,6 +376,18 @@ ${n.content}`
 
       {/* Center Live KPI Chips & Breakpoint Status */}
       <div className="flex items-center gap-2">
+        {/* Real-time Drift Anomaly Badge */}
+        {detectTraceAnomalies(selectedTrace).hasAnomaly && (
+          <button
+            onClick={onOpenAnomalyModal}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-950/80 border border-rose-500/70 text-rose-300 text-xs font-semibold animate-pulse hover:bg-rose-900 transition-all shadow-[0_0_12px_rgba(244,63,94,0.3)]"
+            title="Operational Drift Anomaly Detected: Click to inspect"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+            <span>{detectTraceAnomalies(selectedTrace).anomalies.length} DRIFT ALERTS</span>
+          </button>
+        )}
+
         {Boolean(selectedTrace?.isPaused || selectedTrace?.status === "PAUSED") && (
           <button
             onClick={onOpenBreakpointIntervention}
