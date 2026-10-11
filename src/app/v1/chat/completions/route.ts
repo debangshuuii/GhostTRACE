@@ -51,6 +51,10 @@ export async function POST(req: Request) {
     const tagsHeader = req.headers.get("x-ghosttrace-tags");
     const customTags = tagsHeader ? tagsHeader.split(",").map((t) => t.trim()) : [];
     const workspaceId = req.headers.get("x-workspace-id") || ghostWorkspaceId;
+    const sessionId = req.headers.get("x-session-id") || (body as any)?.sessionId || null;
+    const parentTraceId = req.headers.get("x-parent-trace-id") || (body as any)?.parentTraceId || null;
+    const turnIndexHeader = req.headers.get("x-turn-index");
+    const turnIndex = turnIndexHeader ? parseInt(turnIndexHeader, 10) : undefined;
 
     // Local Simulation Mode (fallback when no API key is provided and targeting default OpenAI)
     const isLocalSimulated =
@@ -77,6 +81,9 @@ export async function POST(req: Request) {
         usage: { prompt_tokens: 45, completion_tokens: 95, total_tokens: 140 },
         durationMs,
         workspaceId,
+        sessionId,
+        turnIndex,
+        parentTraceId,
         customTitle,
         agentName,
         tags: [...customTags, "simulated"],
@@ -175,6 +182,9 @@ export async function POST(req: Request) {
         messages,
         durationMs,
         workspaceId,
+        sessionId,
+        turnIndex,
+        parentTraceId,
         customTitle,
         agentName,
         tags: customTags,
@@ -240,6 +250,9 @@ export async function POST(req: Request) {
               toolCalls: accumulatedToolCalls.filter(Boolean),
               durationMs,
               workspaceId,
+              sessionId,
+              turnIndex,
+              parentTraceId,
               customTitle,
               agentName,
               tags: customTags,
@@ -282,6 +295,9 @@ export async function POST(req: Request) {
       usage: responseJson.usage,
       durationMs,
       workspaceId,
+      sessionId,
+      turnIndex,
+      parentTraceId,
       customTitle,
       agentName,
       tags: customTags,

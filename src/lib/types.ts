@@ -94,6 +94,9 @@ export interface TraceRunData {
   costEstimate: number;
   durationMs: number;
   ghostBranchCount: number;
+  sessionId?: string | null;
+  turnIndex?: number;
+  parentTraceId?: string | null;
   tags: string[];
   description?: string | null;
   createdAt: string | Date;
@@ -101,6 +104,35 @@ export interface TraceRunData {
   nodes: TraceNodeData[];
   edges: TraceEdgeData[];
   evaluations?: TraceEvaluationData[];
+}
+
+export interface ConversationSessionData {
+  sessionId: string;
+  title: string;
+  agentName: string;
+  model: string;
+  turnCount: number;
+  totalTokens: number;
+  totalCost: number;
+  ghostBranchCount: number;
+  durationMs: number;
+  lastTurnAt: string | Date;
+  traces: TraceRunData[];
+}
+
+export interface WebhookAlertConfigData {
+  id?: string;
+  workspaceId?: string | null;
+  name: string;
+  url: string;
+  type: "SLACK" | "DISCORD" | "GENERIC";
+  enabled: boolean;
+  alertOnGuardrail: boolean;
+  alertOnSwarmLoop: boolean;
+  alertOnTokenSpike: boolean;
+  alertOnError: boolean;
+  minSeverity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  createdAt?: string | Date;
 }
 
 // Zod Schema for Uploading & Ingestion validation

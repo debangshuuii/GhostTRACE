@@ -238,7 +238,10 @@ class GhostTraceClient:
         agent_name: str = "Autonomous Agent",
         model: str = "claude-3-7-sonnet",
         tags: Optional[List[str]] = None,
-        description: str = ""
+        description: str = "",
+        session_id: Optional[str] = None,
+        turn_index: Optional[int] = None,
+        parent_trace_id: Optional[str] = None
     ) -> TraceSession:
         """Starts a new trace session on GhostTRACE."""
         res = self._send({
@@ -249,7 +252,10 @@ class GhostTraceClient:
                 "model": model,
                 "tags": tags or ["python-sdk", "live-stream"],
                 "description": description or "Ingested via GhostTRACE Python SDK",
-                "workspaceId": self.workspace_id
+                "workspaceId": self.workspace_id,
+                "sessionId": session_id,
+                "turnIndex": turn_index,
+                "parentTraceId": parent_trace_id
             }
         })
         trace_id = res.get("traceId", f"trace-{uuid.uuid4().hex[:12]}")

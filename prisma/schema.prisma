@@ -15,6 +15,7 @@ model Workspace {
   createdAt   DateTime   @default(now())
   traces      TraceRun[]
   apiKeys     ApiKey[]
+  alerts      WebhookAlertConfig[]
 }
 
 model TraceRun {
@@ -33,6 +34,9 @@ model TraceRun {
   costEstimate     Float             @default(0.0)
   durationMs       Int               @default(0)
   ghostBranchCount Int               @default(0)
+  sessionId        String?
+  turnIndex        Int               @default(1)
+  parentTraceId    String?
   tags             String            @default("[]") // JSON stringified string[]
   description      String?
   createdAt        DateTime          @default(now())
@@ -43,6 +47,7 @@ model TraceRun {
   evaluations      TraceEvaluation[]
 
   @@index([workspaceId])
+  @@index([sessionId])
 }
 
 model TraceNode {
@@ -111,6 +116,25 @@ model ApiKey {
   lastUsedAt  DateTime?
   createdAt   DateTime   @default(now())
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+}
+
+model WebhookAlertConfig {
+  id               String   @id @default(cuid())
+  workspaceId      String?
+  name             String   @default("Slack / Discord Alerts")
+  url              String
+  type             String   @default("SLACK") // SLACK, DISCORD, GENERIC
+  enabled          Boolean  @default(true)
+  alertOnGuardrail Boolean  @default(true)
+  alertOnSwarmLoop Boolean  @default(true)
+  alertOnTokenSpike Boolean @default(true)
+  alertOnError     Boolean  @default(true)
+  minSeverity      String   @default("HIGH") // CRITICAL, HIGH, MEDIUM, LOW
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  workspace        Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
 }

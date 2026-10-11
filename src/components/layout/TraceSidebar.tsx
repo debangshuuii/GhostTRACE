@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { TraceRunData } from "@/lib/types";
 import {
   Search,
@@ -12,6 +12,10 @@ import {
   PlusCircle,
   Clock,
   Sparkles,
+  MessageSquare,
+  ChevronDown,
+  Layers,
+  Bot,
 } from "lucide-react";
 
 interface TraceSidebarProps {
@@ -32,6 +36,8 @@ export function TraceSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"traces" | "sessions">("traces");
+  const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
 
   const models = ["all", "deepseek-r1-distill", "claude-3-7-sonnet", "gpt-4o"];
 
@@ -39,13 +45,63 @@ export function TraceSidebar({
     const matchesSearch =
       t.title.toLowerCase().includes(search.toLowerCase()) ||
       t.agentName.toLowerCase().includes(search.toLowerCase()) ||
-      t.model.toLowerCase().includes(search.toLowerCase());
+      t.model.toLowerCase().includes(search.toLowerCase()) ||
+      (t.sessionId && t.sessionId.toLowerCase().includes(search.toLowerCase()));
 
     const matchesModel =
       selectedModel === "all" || t.model.toLowerCase().includes(selectedModel.toLowerCase());
 
     return matchesSearch && matchesModel;
   });
+
+  const sessions = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        sessionId: string;
+        title: string;
+        agentName: string;
+        model: string;
+        turns: TraceRunData[];
+        totalTokens: number;
+        ghostCount: number;
+        cost: number;
+      }
+    > = {};
+
+    for (const t of filtered) {
+      const sId = t.sessionId || `single-${t.id}`;
+      if (!map[sId]) {
+        map[sId] = {
+          sessionId: sId,
+          title: t.sessionId ? `Session: ${t.sessionId}` : t.title,
+          agentName: t.agentName,
+          model: t.model,
+          turns: [],
+          totalTokens: 0,
+          ghostCount: 0,
+          cost: 0,
+        };
+      }
+      map[sId].turns.push(t);
+      map[sId].totalTokens += t.totalTokens;
+      map[sId].ghostCount += t.ghostBranchCount;
+      map[sId].cost = Number((map[sId].cost + t.costEstimate).toFixed(5));
+    }
+
+    Object.values(map).forEach((s) => {
+      s.turns.sort((a, b) => (a.turnIndex || 1) - (b.turnIndex || 1));
+    });
+
+    return Object.values(map);
+  }, [filtered]);
+
+  const toggleSession = (sessionId: string) => {
+    setExpandedSessions((prev) => ({
+      ...prev,
+      [sessionId]: prev[sessionId] === undefined ? false : !prev[sessionId],
+    }));
+  };
 
   if (collapsed) {
     return (
@@ -138,13 +194,38 @@ export function TraceSidebar({
         </div>
       </div>
 
-      {/* Trace List */}
+      {/* View Mode Toggle: All Runs vs Conversation Threads */}
+      <div className="flex border-b border-slate-800 text-[11px] font-medium bg-slate-950/40">
+        <button
+          onClick={() => setViewMode("traces")}
+          className={`flex-1 py-1.5 border-b-2 text-center transition-all ${
+            viewMode === "traces"
+              ? "border-cyan-400 text-cyan-300 font-semibold"
+              : "border-transparent text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          All Runs ({filtered.length})
+        </button>
+        <button
+          onClick={() => setViewMode("sessions")}
+          className={`flex-1 py-1.5 border-b-2 text-center transition-all flex items-center justify-center gap-1 ${
+            viewMode === "sessions"
+              ? "border-purple-400 text-purple-300 font-semibold"
+              : "border-transparent text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <MessageSquare className="w-3 h-3 text-purple-400" />
+          <span>Threads ({sessions.length})</span>
+        </button>
+      </div>
+
+      {/* List Container */}
       <div className="flex-1 overflow-y-auto divide-y divide-slate-800/40 p-2 space-y-1">
         {filtered.length === 0 ? (
           <div className="text-center py-8 text-xs text-slate-500">
             No matching traces found
           </div>
-        ) : (
+        ) : viewMode === "traces" ? (
           filtered.map((t) => {
             const isSelected = selectedTraceId === t.id;
             return (
@@ -197,6 +278,89 @@ export function TraceSidebar({
                     {(t.durationMs / 1000).toFixed(1)}s
                   </span>
                 </div>
+              </div>
+            );
+          })
+        ) : (
+          /* Multi-Turn Conversation Thread View */
+          sessions.map((s) => {
+            const hasSelected = s.turns.some((turn) => turn.id === selectedTraceId);
+            const isExpanded = expandedSessions[s.sessionId] ?? hasSelected;
+
+            return (
+              <div
+                key={s.sessionId}
+                className={`rounded-xl border transition-all mb-2 overflow-hidden ${
+                  hasSelected
+                    ? "border-purple-600/40 bg-purple-950/10 shadow-[0_0_12px_rgba(168,85,247,0.12)]"
+                    : "border-slate-800/80 bg-slate-900/30 hover:border-slate-700"
+                }`}
+              >
+                {/* Session Header Card */}
+                <div
+                  onClick={() => toggleSession(s.sessionId)}
+                  className="p-2.5 cursor-pointer flex items-center justify-between gap-2 hover:bg-slate-800/40 transition-colors"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-slate-400">
+                      {isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5 text-purple-400" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-semibold text-slate-200 truncate">
+                        {s.title}
+                      </h4>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        {s.agentName} • {s.turns.length} turns
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800/60 font-semibold">
+                      {s.turns.length} turns
+                    </span>
+                    {s.ghostCount > 0 && (
+                      <span className="flex items-center gap-0.5 text-[10px] text-purple-400 font-mono font-semibold">
+                        <Ghost className="w-3 h-3" />
+                        {s.ghostCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sub-turn list */}
+                {isExpanded && (
+                  <div className="border-t border-slate-800/60 bg-black/30 divide-y divide-slate-800/40 pl-3">
+                    {s.turns.map((turn, idx) => {
+                      const isTurnSelected = selectedTraceId === turn.id;
+                      return (
+                        <div
+                          key={turn.id}
+                          onClick={() => onSelectTrace(turn.id)}
+                          className={`p-2 cursor-pointer transition-all flex items-center justify-between text-xs ${
+                            isTurnSelected
+                              ? "bg-purple-950/40 text-cyan-300 font-semibold border-l-2 border-cyan-400"
+                              : "text-slate-300 hover:bg-slate-800/40 hover:text-white"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-4 h-4 rounded-full bg-slate-800 text-[10px] font-mono flex items-center justify-center text-slate-400 shrink-0">
+                              {turn.turnIndex || idx + 1}
+                            </span>
+                            <span className="truncate text-[11px]">{turn.title}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-mono text-slate-500">
+                            <span>{(turn.durationMs / 1000).toFixed(1)}s</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })

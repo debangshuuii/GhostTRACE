@@ -10,6 +10,9 @@ export interface StartTraceOptions {
   tags?: string[];
   description?: string;
   workspaceId?: string;
+  sessionId?: string;
+  turnIndex?: number;
+  parentTraceId?: string;
 }
 
 export interface AddStepOptions {
@@ -160,6 +163,9 @@ export class GhostTraceClient {
         tags: options.tags || ["typescript-sdk", "live-stream"],
         description: options.description || "Ingested via GhostTRACE Node.js SDK",
         workspaceId: options.workspaceId || this.workspaceId,
+        sessionId: options.sessionId,
+        turnIndex: options.turnIndex,
+        parentTraceId: options.parentTraceId,
       },
     });
 

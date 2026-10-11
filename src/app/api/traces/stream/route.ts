@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateApiKey } from "@/lib/auth-guard";
 import { traceEventBus } from "@/lib/trace-event-bus";
+import { dispatchAlert } from "@/lib/alert-dispatcher";
 
 export async function POST(req: Request) {
   try {
@@ -16,6 +17,10 @@ export async function POST(req: Request) {
     if (event === "TRACE_START") {
       const trace = await prisma.traceRun.create({
         data: {
+          workspaceId: auth.apiKey?.workspaceId || data.workspaceId || null,
+          sessionId: data.sessionId || null,
+          turnIndex: data.turnIndex || 1,
+          parentTraceId: data.parentTraceId || null,
           title: data.title || "Live Streaming Agent Trace",
           agentName: data.agentName || "Autonomous Agent",
           model: data.model || "gpt-4o",
@@ -93,6 +98,20 @@ export async function POST(req: Request) {
         node,
         edge: createdEdge,
       });
+
+      // Dispatch Webhook Alert if a Ghost Branch was pruned
+      if (data.isGhost && data.ghostReason) {
+        dispatchAlert({
+          title: `Critic Pruned Ghost: ${data.label || "Policy Intercept"}`,
+          severity: "HIGH",
+          category: "GUARDRAIL",
+          reason: data.ghostReason,
+          agentName: "Streaming Agent",
+          model: "live-stream",
+          traceId,
+          tokensConsumed: data.tokens || 100,
+        }).catch(() => {});
+      }
 
       return NextResponse.json({ success: true, node, edge: createdEdge }, { status: 201 });
     }

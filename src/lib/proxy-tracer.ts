@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { traceEventBus } from "@/lib/trace-event-bus";
 import { DEFAULT_GUARDRAILS } from "@/lib/guardrails";
 import { TraceNodeData } from "@/lib/types";
+import { dispatchAlert } from "@/lib/alert-dispatcher";
 
 export interface CreateProxyTraceOptions {
   model: string;
@@ -17,6 +18,9 @@ export interface CreateProxyTraceOptions {
   };
   durationMs: number;
   workspaceId?: string | null;
+  sessionId?: string | null;
+  turnIndex?: number;
+  parentTraceId?: string | null;
   customTitle?: string | null;
   agentName?: string | null;
   tags?: string[];
@@ -98,10 +102,26 @@ export async function createProxyTrace(opts: CreateProxyTraceOptions) {
     ...(opts.toolCalls?.length ? ["tool-calls"] : []),
   ]));
 
+  // Resolve session and turn index if multi-turn conversation
+  let effectiveTurnIndex = opts.turnIndex || 1;
+  if (opts.sessionId && !opts.turnIndex) {
+    try {
+      const priorTurns = await prisma.traceRun.count({
+        where: { sessionId: opts.sessionId },
+      });
+      effectiveTurnIndex = priorTurns + 1;
+    } catch {
+      effectiveTurnIndex = 1;
+    }
+  }
+
   // 1. Create TraceRun
   const trace = await prisma.traceRun.create({
     data: {
       workspaceId: workspaceId || null,
+      sessionId: opts.sessionId || null,
+      turnIndex: effectiveTurnIndex,
+      parentTraceId: opts.parentTraceId || null,
       title,
       agentName: effectiveAgent,
       model,
@@ -263,6 +283,21 @@ export async function createProxyTrace(opts: CreateProxyTraceOptions) {
         latencyMs: 120,
         posY: 520,
       });
+
+      // Dispatch Webhook Alert (Slack / Discord)
+      dispatchAlert({
+        title: `Critic Safety Veto: ${rule.name}`,
+        severity: rule.severity,
+        category: "GUARDRAIL",
+        reason: check.reason || "Safety policy violated",
+        agentName: effectiveAgent,
+        model,
+        traceId: trace.id,
+        traceTitle: title,
+        workspaceId,
+        tokensConsumed: totalTokens,
+      }).catch(() => {});
+
       break;
     }
   }
@@ -296,6 +331,20 @@ export async function createProxyTrace(opts: CreateProxyTraceOptions) {
       latencyMs: durationMs,
       posY: 240,
     });
+
+    // Dispatch error alert
+    dispatchAlert({
+      title: "Agent Run Execution Failure",
+      severity: "HIGH",
+      category: "ERROR",
+      reason: errorMessage,
+      agentName: effectiveAgent,
+      model,
+      traceId: trace.id,
+      traceTitle: title,
+      workspaceId,
+      tokensConsumed: totalTokens,
+    }).catch(() => {});
   } else if (responseText) {
     await appendNode({
       type: "LLM_RESPONSE",

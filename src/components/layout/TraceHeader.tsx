@@ -31,6 +31,7 @@ import {
   Building2,
   Network,
   AlertTriangle,
+  Bell,
 } from "lucide-react";
 import { detectTraceAnomalies } from "@/lib/anomaly-detector";
 
@@ -63,6 +64,7 @@ interface TraceHeaderProps {
   onOpenSwarmTopology?: () => void;
   onOpenBreakpointIntervention?: () => void;
   onOpenAnomalyModal?: () => void;
+  onOpenAlerts?: () => void;
   onReloadSeed: () => void;
   isSeeding?: boolean;
   isLiveConnected?: boolean;
@@ -90,6 +92,7 @@ export function TraceHeader({
   onOpenSwarmTopology,
   onOpenBreakpointIntervention,
   onOpenAnomalyModal,
+  onOpenAlerts,
   onReloadSeed,
   isSeeding = false,
   isLiveConnected = false,
@@ -507,6 +510,16 @@ ${n.content}`
         >
           <Key className="w-3.5 h-3.5 text-cyan-400" />
           <span className="hidden lg:inline">API Keys</span>
+        </button>
+
+        {/* Webhook Incident Alerts Button */}
+        <button
+          onClick={onOpenAlerts}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-900/80 text-rose-300 border border-rose-700/60 text-xs font-semibold transition-all shadow-[0_0_10px_rgba(244,63,94,0.25)]"
+          title="Configure Production Incident & Webhook Alerts (Slack / Discord)"
+        >
+          <Bell className="w-3.5 h-3.5 text-rose-400" />
+          <span className="hidden xl:inline">Alerts</span>
         </button>
 
         {/* Waterfall Gantt Timeline Profiler */}

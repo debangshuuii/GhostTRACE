@@ -58,6 +58,19 @@
 ### 10. 🛡️ Guardrails & Safety Policy Engine
 - Pre-configured checks for destructive commands (`rm -rf`, `DROP TABLE`, `kubectl drain`), secret/credential leaks, token spikes, and hallucinations.
 
+### 11. 🧵 Multi-Turn Conversation Sessions & Thread Hierarchy
+- Group isolated agent runs into persistent conversation threads (`sessionId`, `turnIndex`).
+- Inspect context drift, accumulated memory, and ghost pruning frequency across turns in real-world chat and coding workflows.
+- Switch between **"All Runs"** and **"Grouped Threads"** directly in the Trace Explorer sidebar.
+
+### 12. 🚨 Real-Time Production Incident Webhook Alerting (Slack / Discord)
+- Automated dispatch to Slack (Block Kit) and Discord (rich embeds) on:
+  - Guardrail policy vetoes (destructive commands, secret leaks)
+  - Runaway swarm ping-pong loops
+  - Step token blast radius spikes (> 5,000 tokens)
+  - Agent runtime crashes & unhandled exceptions
+- Includes 1-click test beacon verification and configurable minimum alert severity thresholds.
+
 ---
 
 ## 🛠️ Technology Stack

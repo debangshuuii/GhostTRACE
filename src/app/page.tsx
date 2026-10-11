@@ -22,6 +22,7 @@ import { BreakpointInterventionModal } from "@/components/modals/BreakpointInter
 import { WaterfallTimelineDrawer } from "@/components/analytics/WaterfallTimelineDrawer";
 import { SwarmTopologyModal } from "@/components/modals/SwarmTopologyModal";
 import { AnomalyDriftModal } from "@/components/modals/AnomalyDriftModal";
+import { WebhookAlertsModal } from "@/components/modals/WebhookAlertsModal";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
 
@@ -56,6 +57,7 @@ export default function Home() {
   const [swarmModalOpen, setSwarmModalOpen] = useState(false);
   const [anomalyModalOpen, setAnomalyModalOpen] = useState(false);
   const [breakpointModalOpen, setBreakpointModalOpen] = useState(false);
+  const [alertsModalOpen, setAlertsModalOpen] = useState(false);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
   const [isLiveConnected, setIsLiveConnected] = useState(false);
@@ -327,6 +329,7 @@ export default function Home() {
         onOpenSwarmTopology={() => setSwarmModalOpen(true)}
         onOpenBreakpointIntervention={handleOpenBreakpointIntervention}
         onOpenAnomalyModal={() => setAnomalyModalOpen(true)}
+        onOpenAlerts={() => setAlertsModalOpen(true)}
         onReloadSeed={handleReloadSeed}
         isSeeding={isSeeding}
         isLiveConnected={isLiveConnected}
@@ -531,6 +534,13 @@ export default function Home() {
         isOpen={anomalyModalOpen}
         onClose={() => setAnomalyModalOpen(false)}
         trace={selectedTrace}
+      />
+
+      {/* Production Webhook Incident Alerts (Slack / Discord) */}
+      <WebhookAlertsModal
+        isOpen={alertsModalOpen}
+        onClose={() => setAlertsModalOpen(false)}
+        workspaceId={selectedWorkspaceId}
       />
     </div>
   );
