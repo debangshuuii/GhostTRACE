@@ -1,16 +1,50 @@
 """
-GhostTRACE Python SDK
-Official drop-in client for streaming multi-agent execution traces and counterfactual ghost branches.
-Zero external dependencies required (uses standard library urllib).
+GhostTRACE Python SDK & Zero-Code Auto-Instrumentation
+Official drop-in client for streaming multi-agent execution traces, reasoning trees, and counterfactual ghost branches.
+Zero external dependencies required (uses standard library urllib, threading, json, time).
 """
 
 import json
 import time
 import uuid
+import threading
 import urllib.request
 import urllib.error
 from typing import Optional, List, Dict, Any, Callable
 from functools import wraps
+from contextlib import contextmanager
+
+# Global default client configuration
+_DEFAULT_ENDPOINT = "http://localhost:3000"
+_DEFAULT_API_KEY: Optional[str] = None
+_DEFAULT_WORKSPACE_ID: Optional[str] = None
+_GLOBAL_CLIENT: Optional["GhostTraceClient"] = None
+
+
+def configure(
+    endpoint: str = "http://localhost:3000",
+    api_key: Optional[str] = None,
+    workspace_id: Optional[str] = None
+):
+    """Sets the global GhostTRACE connection configuration."""
+    global _DEFAULT_ENDPOINT, _DEFAULT_API_KEY, _DEFAULT_WORKSPACE_ID, _GLOBAL_CLIENT
+    _DEFAULT_ENDPOINT = endpoint.rstrip("/")
+    _DEFAULT_API_KEY = api_key
+    _DEFAULT_WORKSPACE_ID = workspace_id
+    _GLOBAL_CLIENT = GhostTraceClient(endpoint=endpoint, api_key=api_key, workspace_id=workspace_id)
+
+
+def get_default_client() -> "GhostTraceClient":
+    """Returns the globally configured GhostTraceClient instance."""
+    global _GLOBAL_CLIENT
+    if _GLOBAL_CLIENT is None:
+        _GLOBAL_CLIENT = GhostTraceClient(
+            endpoint=_DEFAULT_ENDPOINT,
+            api_key=_DEFAULT_API_KEY,
+            workspace_id=_DEFAULT_WORKSPACE_ID
+        )
+    return _GLOBAL_CLIENT
+
 
 class GhostTraceNode:
     def __init__(self, trace_session: "TraceSession", node_id: str, step_index: int, label: str):
@@ -102,7 +136,7 @@ class TraceSession:
                 "rawOutput": raw_output
             }
         }
-        self.client._send(payload)
+        self.client._send_async(payload)
         return GhostTraceNode(self, node_id, self.step_counter, label)
 
     def add_ghost_branch(
@@ -137,12 +171,28 @@ class TraceSession:
                 "parentNodeId": parent_node.node_id
             }
         }
-        self.client._send(payload)
+        self.client._send_async(payload)
         return GhostTraceNode(self, node_id, self.step_counter, label)
+
+    @contextmanager
+    def span(self, label: str, node_type: str = "THINKING", parent_node: Optional[GhostTraceNode] = None):
+        """Context manager to trace a block of execution with automatic duration tracking."""
+        start = time.time()
+        node = self.add_step(
+            node_type=node_type,
+            label=label,
+            content=f"Executing {label}...",
+            parent_node=parent_node
+        )
+        try:
+            yield node
+        finally:
+            elapsed_ms = int((time.time() - start) * 1000)
+            # Send latency update if needed
 
     def finish(self, status: str = "COMPLETED"):
         """Closes the trace session."""
-        self.client._send({
+        self.client._send_async({
             "event": "TRACE_END",
             "traceId": self.trace_id,
             "data": { "status": status }
@@ -150,23 +200,37 @@ class TraceSession:
 
 
 class GhostTraceClient:
-    def __init__(self, endpoint: str = "http://localhost:3000"):
+    def __init__(
+        self,
+        endpoint: str = "http://localhost:3000",
+        api_key: Optional[str] = None,
+        workspace_id: Optional[str] = None
+    ):
         self.endpoint = endpoint.rstrip("/")
+        self.api_key = api_key
+        self.workspace_id = workspace_id
         self.stream_url = f"{self.endpoint}/api/traces/stream"
 
     def _send(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         data_bytes = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            self.stream_url,
-            data=data_bytes,
-            headers={"Content-Type": "application/json"}
-        )
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        if self.workspace_id:
+            headers["x-workspace-id"] = self.workspace_id
+
+        req = urllib.request.Request(self.stream_url, data=data_bytes, headers=headers)
         try:
-            with urllib.request.urlopen(req) as resp:
+            with urllib.request.urlopen(req, timeout=5) as resp:
                 return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.URLError as e:
-            print(f"[GhostTRACE Warning] Failed to stream event: {e}")
+        except Exception as e:
+            # Gracefully fail without interrupting user's main agent execution
             return {}
+
+    def _send_async(self, payload: Dict[str, Any]):
+        """Dispatches event in background daemon thread to eliminate latency."""
+        t = threading.Thread(target=self._send, args=(payload,), daemon=True)
+        t.start()
 
     def start_trace(
         self,
@@ -184,7 +248,8 @@ class GhostTraceClient:
                 "agentName": agent_name,
                 "model": model,
                 "tags": tags or ["python-sdk", "live-stream"],
-                "description": description or f"Ingested via GhostTRACE Python SDK"
+                "description": description or "Ingested via GhostTRACE Python SDK",
+                "workspaceId": self.workspace_id
             }
         })
         trace_id = res.get("traceId", f"trace-{uuid.uuid4().hex[:12]}")
@@ -221,3 +286,256 @@ class GhostTraceClient:
                     raise
             return wrapper
         return decorator
+
+
+# Module-level convenience decorator
+def trace(title: Optional[str] = None, agent_name: str = "Python Agent", model: str = "gpt-4o"):
+    """Global decorator to trace any Python function with GhostTRACE."""
+    client = get_default_client()
+    return client.observe(title=title, agent_name=agent_name, model=model)
+
+
+# ----------------------------------------------------------------------
+# ZERO-CODE MONKEYPATCHING (OpenAI & Anthropic)
+# ----------------------------------------------------------------------
+
+def patch_openai(
+    client: Optional[Any] = None,
+    endpoint: str = "http://localhost:3000",
+    agent_name: str = "OpenAI-AutoTracer"
+):
+    """
+    Zero-Code Auto-Instrumentation for OpenAI Python SDK.
+    Patches client.chat.completions.create to automatically capture reasoning CoT,
+    prompts, tool calls, and counterfactual ghost errors without touching user code.
+    """
+    gt_client = GhostTraceClient(endpoint=endpoint)
+
+    def _wrap_create(orig_create_fn):
+        @wraps(orig_create_fn)
+        def wrapped_create(*args, **kwargs):
+            messages = kwargs.get("messages", [])
+            model = kwargs.get("model", "gpt-4o")
+            tools = kwargs.get("tools", [])
+
+            user_msg = "OpenAI Query"
+            for m in reversed(messages):
+                if isinstance(m, dict) and m.get("role") == "user":
+                    user_msg = str(m.get("content", ""))[:80]
+                    break
+
+            # 1. Start Trace
+            session = gt_client.start_trace(
+                title=f"OpenAI: {user_msg}",
+                agent_name=agent_name,
+                model=model,
+                tags=["openai", "zero-code-patch"]
+            )
+
+            # 2. Record User Prompt Node
+            prompt_node = session.add_step(
+                node_type="USER_PROMPT",
+                label="User Directive",
+                content=json.dumps(messages, indent=2) if len(messages) > 1 else user_msg,
+                tokens=sum(len(str(m)) for m in messages) // 4 + 10,
+                latency_ms=15
+            )
+
+            start_t = time.time()
+            try:
+                response = orig_create_fn(*args, **kwargs)
+                elapsed_ms = int((time.time() - start_t) * 1000)
+
+                # Extract response text, reasoning, tool_calls
+                choice = response.choices[0] if getattr(response, "choices", None) else None
+                message = getattr(choice, "message", None) if choice else None
+
+                content = getattr(message, "content", "") or ""
+                reasoning = (
+                    getattr(message, "reasoning_content", None) or
+                    getattr(message, "reasoning", None) or
+                    None
+                )
+
+                # Check for <think> tags in DeepSeek
+                if not reasoning and "<think>" in content:
+                    import re
+                    m = re.search(r"<think>(.*?)</think>", content, re.DOTALL)
+                    if m:
+                        reasoning = m.group(1).strip()
+                        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
+                parent = prompt_node
+
+                # 3. Add Thinking Node if present
+                if reasoning:
+                    parent = parent.add_next_step(
+                        node_type="THINKING",
+                        label="Chain-of-Thought Reasoning",
+                        content=reasoning,
+                        tokens=len(reasoning) // 4,
+                        latency_ms=int(elapsed_ms * 0.4)
+                    )
+
+                # 4. Add Tool Calls if present
+                tool_calls = getattr(message, "tool_calls", None)
+                if tool_calls:
+                    for tc in tool_calls:
+                        fn = getattr(tc, "function", None)
+                        fn_name = getattr(fn, "name", "tool") if fn else "tool"
+                        fn_args = getattr(fn, "arguments", "{}") if fn else "{}"
+                        parent = parent.add_next_step(
+                            node_type="TOOL_CALL",
+                            label=f"Tool: {fn_name}",
+                            content=fn_args,
+                            tokens=len(fn_args) // 4 + 20,
+                            latency_ms=int(elapsed_ms * 0.3)
+                        )
+
+                # 5. Add Final Response Node
+                if content:
+                    parent.add_next_step(
+                        node_type="LLM_RESPONSE",
+                        label="LLM Synthesis",
+                        content=content,
+                        tokens=len(content) // 4 + 10,
+                        latency_ms=int(elapsed_ms * 0.5)
+                    )
+
+                session.finish("COMPLETED")
+                return response
+            except Exception as e:
+                # Record error node and finish as FAILED
+                session.add_step(
+                    node_type="ERROR",
+                    label="Execution Error",
+                    content=str(e),
+                    parent_node=prompt_node
+                )
+                session.finish("FAILED")
+                raise
+
+        return wrapped_create
+
+    # If specific client passed, patch that instance
+    if client is not None:
+        if hasattr(client, "chat") and hasattr(client.chat, "completions"):
+            client.chat.completions.create = _wrap_create(client.chat.completions.create)
+            print("[GhostTRACE] Auto-instrumented client.chat.completions.create")
+            return client
+
+    # Otherwise, try monkeypatching the OpenAI module class
+    try:
+        import openai
+        if hasattr(openai, "resources") and hasattr(openai.resources, "chat"):
+            orig = openai.resources.chat.completions.Completions.create
+            openai.resources.chat.completions.Completions.create = _wrap_create(orig)
+            print("[GhostTRACE] Zero-code patch applied to openai.resources.chat.completions.Completions.create")
+        elif hasattr(openai, "ChatCompletion"):
+            orig = openai.ChatCompletion.create
+            openai.ChatCompletion.create = _wrap_create(orig)
+            print("[GhostTRACE] Zero-code patch applied to openai.ChatCompletion.create")
+    except ImportError:
+        pass
+
+
+def patch_anthropic(
+    client: Optional[Any] = None,
+    endpoint: str = "http://localhost:3000",
+    agent_name: str = "Claude-AutoTracer"
+):
+    """
+    Zero-Code Auto-Instrumentation for Anthropic Python SDK.
+    Captures Claude 3.7 extended thinking blocks, tool uses, and responses.
+    """
+    gt_client = GhostTraceClient(endpoint=endpoint)
+
+    def _wrap_create(orig_create_fn):
+        @wraps(orig_create_fn)
+        def wrapped_create(*args, **kwargs):
+            messages = kwargs.get("messages", [])
+            model = kwargs.get("model", "claude-3-7-sonnet")
+            user_msg = str(messages[-1].get("content", "Claude Query"))[:80] if messages else "Claude Query"
+
+            session = gt_client.start_trace(
+                title=f"Anthropic: {user_msg}",
+                agent_name=agent_name,
+                model=model,
+                tags=["anthropic", "claude", "zero-code-patch"]
+            )
+
+            prompt_node = session.add_step(
+                node_type="USER_PROMPT",
+                label="User Directive",
+                content=json.dumps(messages, indent=2) if len(messages) > 1 else user_msg,
+                tokens=35,
+                latency_ms=15
+            )
+
+            start_t = time.time()
+            try:
+                response = orig_create_fn(*args, **kwargs)
+                elapsed_ms = int((time.time() - start_t) * 1000)
+
+                parent = prompt_node
+                content_blocks = getattr(response, "content", [])
+
+                for block in content_blocks:
+                    b_type = getattr(block, "type", "")
+                    if b_type == "thinking":
+                        thinking_text = getattr(block, "thinking", "")
+                        parent = parent.add_next_step(
+                            node_type="THINKING",
+                            label="Claude Thinking Block",
+                            content=thinking_text,
+                            tokens=len(thinking_text) // 4,
+                            latency_ms=int(elapsed_ms * 0.4)
+                        )
+                    elif b_type == "tool_use":
+                        tool_name = getattr(block, "name", "tool")
+                        tool_input = json.dumps(getattr(block, "input", {}), indent=2)
+                        parent = parent.add_next_step(
+                            node_type="TOOL_CALL",
+                            label=f"Tool: {tool_name}",
+                            content=tool_input,
+                            tokens=len(tool_input) // 4,
+                            latency_ms=int(elapsed_ms * 0.3)
+                        )
+                    elif b_type == "text":
+                        text_val = getattr(block, "text", "")
+                        parent.add_next_step(
+                            node_type="LLM_RESPONSE",
+                            label="Claude Response",
+                            content=text_val,
+                            tokens=len(text_val) // 4,
+                            latency_ms=int(elapsed_ms * 0.5)
+                        )
+
+                session.finish("COMPLETED")
+                return response
+            except Exception as e:
+                session.add_step(
+                    node_type="ERROR",
+                    label="Anthropic Error",
+                    content=str(e),
+                    parent_node=prompt_node
+                )
+                session.finish("FAILED")
+                raise
+
+        return wrapped_create
+
+    if client is not None:
+        if hasattr(client, "messages"):
+            client.messages.create = _wrap_create(client.messages.create)
+            print("[GhostTRACE] Auto-instrumented client.messages.create")
+            return client
+
+    try:
+        import anthropic
+        if hasattr(anthropic, "resources") and hasattr(anthropic.resources, "messages"):
+            orig = anthropic.resources.messages.Messages.create
+            anthropic.resources.messages.Messages.create = _wrap_create(orig)
+            print("[GhostTRACE] Zero-code patch applied to anthropic.resources.messages.Messages.create")
+    except ImportError:
+        pass

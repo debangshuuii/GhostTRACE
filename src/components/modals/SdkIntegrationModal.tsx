@@ -21,12 +21,74 @@ interface SdkIntegrationModalProps {
 }
 
 export function SdkIntegrationModal({ isOpen, onClose, onTraceCreated }: SdkIntegrationModalProps) {
-  const [activeTab, setActiveTab] = useState<"python" | "typescript" | "otel" | "langgraph" | "curl">("python");
+  const [activeTab, setActiveTab] = useState<"proxy" | "autoinstrument" | "python" | "typescript" | "otel" | "langgraph" | "curl">("proxy");
   const [copied, setCopied] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testSuccess, setTestSuccess] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const proxySnippet = `# 👻 ZERO-CODE TRACING PROXY (Point any OpenAI-compatible client here)
+# Endpoint: http://localhost:3000/v1 (or /api/v1)
+
+# 1. Python (OpenAI SDK):
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:3000/v1",
+    api_key="sk-..."  # Your OpenAI / DeepSeek key (or GhostTRACE gt_live_... key)
+)
+
+# DeepSeek-R1 / o1 reasoning, tool calls, and ghost branches are auto-captured!
+response = client.chat.completions.create(
+    model="deepseek-r1",
+    messages=[
+        {"role": "system", "content": "You are an autonomous cloud resilience engineer."},
+        {"role": "user", "content": "Analyze memory allocation and optimize redis clusters."}
+    ],
+    stream=True
+)
+
+# 2. Node.js / TypeScript:
+import OpenAI from "openai";
+const client = new OpenAI({
+  baseURL: "http://localhost:3000/v1",
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+# 3. Environment Variable (Works with CrewAI, AutoGen, LangChain, Cursor, Open WebUI):
+export OPENAI_BASE_URL="http://localhost:3000/v1"`;
+
+  const autoinstrumentSnippet = `# 🐍 ZERO-CODE MONKEYPATCHING (Python & Node.js)
+
+# Option A: Python 1-Line Monkeypatching (sdk/python/ghosttrace.py)
+import ghosttrace
+from openai import OpenAI
+
+# Automatically intercepts client.chat.completions.create & extracts reasoning + tool calls
+ghosttrace.patch_openai()
+
+client = OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Diagnose latency spike on payment worker"}]
+)
+
+# Also supports Anthropic Claude 3.7 with extended thinking blocks:
+ghosttrace.patch_anthropic()
+
+# Or wrap any custom agent function directly:
+@ghosttrace.trace(title="Autonomous Auditor", agent_name="SecurityBot")
+def audit_database(session, db_config):
+    # Your agent code here...
+    return {"status": "secure"}
+
+# -------------------------------------------------------------
+# Option B: Node.js / TypeScript Client Wrapper (sdk/node/ghosttrace.ts)
+import { wrapOpenAI } from "./sdk/node/ghosttrace";
+import OpenAI from "openai";
+
+const client = wrapOpenAI(new OpenAI());`;
 
   const pythonSnippet = `# GhostTRACE Python SDK (sdk/python/ghosttrace.py)
 from ghosttrace import GhostTraceClient
@@ -240,6 +302,8 @@ curl -X POST http://localhost:3000/api/ingest/otel \\
 
   const getActiveCode = () => {
     switch (activeTab) {
+      case "proxy": return proxySnippet;
+      case "autoinstrument": return autoinstrumentSnippet;
       case "python": return pythonSnippet;
       case "typescript": return tsSnippet;
       case "otel": return otelSnippet;
@@ -261,7 +325,34 @@ curl -X POST http://localhost:3000/api/ingest/otel \\
 
       let createdTraceId = "";
 
-      if (activeTab === "otel") {
+      if (activeTab === "proxy") {
+        // Send request through Zero-Code OpenAI-compatible Proxy
+        const res = await fetch("/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-ghosttrace-internal": "true",
+            "x-ghosttrace-title": "Zero-Code OpenAI Proxy Test Run",
+            "x-ghosttrace-agent": "ZeroCode-Proxy-Bot",
+          },
+          body: JSON.stringify({
+            model: "deepseek-r1",
+            messages: [
+              {
+                role: "user",
+                content: "Validate the zero-code OpenAI proxy endpoint and verify reasoning chain capture.",
+              },
+            ],
+          }),
+        });
+        const traceHeaderId = res.headers.get("x-ghosttrace-id");
+        if (traceHeaderId) {
+          createdTraceId = traceHeaderId;
+        } else {
+          const proxyData = await res.json();
+          createdTraceId = proxyData.id?.replace("chatcmpl-", "") || "";
+        }
+      } else if (activeTab === "otel") {
         // Send real OpenTelemetry payload
         const otelPayload = {
           resourceSpans: [
@@ -494,18 +585,28 @@ curl -X POST http://localhost:3000/api/ingest/otel \\
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-800 gap-4 mb-4 text-xs font-medium">
-          {(["python", "typescript", "otel", "langgraph", "curl"] as const).map((tab) => (
+        <div className="flex border-b border-slate-800 gap-4 mb-4 text-xs font-medium overflow-x-auto pb-1">
+          {(["proxy", "autoinstrument", "python", "typescript", "otel", "langgraph", "curl"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`pb-2.5 border-b-2 capitalize transition-all ${
+              className={`pb-2.5 border-b-2 capitalize transition-all whitespace-nowrap ${
                 activeTab === tab
                   ? "border-cyan-400 text-cyan-300 font-semibold"
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              {tab === "otel" ? "OpenTelemetry (OTel)" : tab === "langgraph" ? "LangChain / LangGraph" : tab === "typescript" ? "TypeScript / Node" : tab}
+              {tab === "proxy"
+                ? "⚡ Zero-Code Proxy"
+                : tab === "autoinstrument"
+                ? "🐍 Auto-Instrument (Patch)"
+                : tab === "otel"
+                ? "OpenTelemetry (OTel)"
+                : tab === "langgraph"
+                ? "LangChain / LangGraph"
+                : tab === "typescript"
+                ? "TypeScript / Node"
+                : tab}
             </button>
           ))}
         </div>
@@ -514,7 +615,11 @@ curl -X POST http://localhost:3000/api/ingest/otel \\
         <div className="relative flex-1 bg-black/90 border border-slate-800 rounded-xl overflow-hidden mb-4">
           <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-900/70 text-[11px] text-slate-400 font-mono">
             <span>
-              {activeTab === "curl"
+              {activeTab === "proxy"
+                ? "OpenAI Client Proxy Config (Python / TS)"
+                : activeTab === "autoinstrument"
+                ? "sdk/python/ghosttrace.py (Monkeypatch)"
+                : activeTab === "curl"
                 ? "bash (cURL)"
                 : activeTab === "otel"
                 ? "opentelemetry_config.py"

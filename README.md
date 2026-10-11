@@ -22,11 +22,13 @@
 - **Interactive MiniMap**: Global canvas navigator with color-coded node categories.
 - **Node Filter & Search**: Instant keyword search and category filtering with non-matching node dimming.
 
-### 4. 🔌 Real-World Ingestion SDKs (OTel, LangChain, Python, Node.js)
+### 4. ⚡ Zero-Code OpenAI-Compatible Tracing Proxy & SDKs
+- **Zero-Code Tracing Reverse Proxy**: Point any OpenAI-compatible client (OpenAI, DeepSeek, LangChain, CrewAI, AutoGen, Cursor) to `http://localhost:3000/v1` (`/v1/chat/completions`). GhostTRACE automatically intercepts reasoning paths, CoT `<think>` tags, tool calls, and critic-pruned ghost branches with zero code changes!
+- **Zero-Code Python Monkeypatching**: `ghosttrace.patch_openai()` and `ghosttrace.patch_anthropic()` automatically instrument any existing client in 1 line.
+- **Zero-Code TypeScript / Node Wrapper**: `wrapOpenAI(client)` and `withTrace(fn)`.
 - **OpenTelemetry Standard Ingestion**: Ingest spans directly via `/api/ingest/otel` and standard collector alias `/v1/traces`.
 - **LangChain & LangGraph**: Dedicated `/api/ingest/langchain` endpoint for RunTree payloads.
-- **Official Python SDK**: `sdk/python/ghosttrace.py` for Python agent frameworks.
-- **Official Node.js / TypeScript SDK**: `sdk/node/ghosttrace.ts` for Node/TS environments.
+- **Official Python & Node.js SDKs**: `sdk/python/ghosttrace.py` and `sdk/node/ghosttrace.ts`.
 
 ### 5. 🔑 Multi-Tenant API Key Management with SHA-256 Hashing
 - Issue scoped credentials (`gt_live_...` for production, `gt_test_...` for staging).
