@@ -21,7 +21,7 @@ interface SdkIntegrationModalProps {
 }
 
 export function SdkIntegrationModal({ isOpen, onClose, onTraceCreated }: SdkIntegrationModalProps) {
-  const [activeTab, setActiveTab] = useState<"proxy" | "autoinstrument" | "python" | "typescript" | "otel" | "langgraph" | "curl">("proxy");
+  const [activeTab, setActiveTab] = useState<"proxy" | "autoinstrument" | "mcp" | "python" | "typescript" | "otel" | "langgraph" | "curl">("proxy");
   const [copied, setCopied] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testSuccess, setTestSuccess] = useState<string | null>(null);
@@ -300,10 +300,68 @@ curl -X POST http://localhost:3000/api/ingest/otel \\
     }]
   }'`;
 
+  const mcpSnippet = `# 🌐 MODEL CONTEXT PROTOCOL (MCP) INGESTION & TRACING
+# Point Claude Desktop, Cursor, Cline, or custom MCP Agents directly to GhostTRACE!
+# Ingestion Endpoint: http://localhost:3000/api/ingest/mcp
+
+# 1. Claude Desktop Configuration (claude_desktop_config.json):
+{
+  "mcpServers": {
+    "ghosttrace-bridge": {
+      "command": "npx",
+      "args": ["-y", "ghosttrace-mcp-proxy", "--ingest", "http://localhost:3000/api/ingest/mcp"]
+    },
+    "postgres-db": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/prod_db"]
+    }
+  }
+}
+
+# 2. Python MCP Ingestion Payload:
+import requests
+
+payload = {
+    "clientName": "Claude Desktop (MCP Host)",
+    "serverName": "postgres-mcp-server",
+    "model": "claude-3-7-sonnet",
+    "prompt": "Optimize transactions table and add composite index safely",
+    "exchanges": [
+        {
+            "method": "tools/call",
+            "request": {"name": "explain_query", "arguments": {"sql": "SELECT * FROM transactions"}},
+            "response": {"plan": "Seq Scan detected: missing index on (user_id, created_at)"},
+            "latencyMs": 140
+        },
+        {
+            "method": "tools/call",
+            "request": {"name": "raw_exec", "arguments": {"sql": "DROP TABLE transactions"}},
+            "isGhost": True,
+            "ghostReason": "Critic Policy Veto: Destructive table drop blocked on production replica",
+            "latencyMs": 95
+        },
+        {
+            "method": "tools/call",
+            "request": {"name": "create_index", "arguments": {"sql": "CREATE INDEX CONCURRENTLY idx_tx ON transactions(user_id, created_at DESC);"}},
+            "response": {"status": "SUCCESS"},
+            "latencyMs": 620
+        }
+    ]
+}
+
+res = requests.post("http://localhost:3000/api/ingest/mcp", json=payload)
+print(f"Ingested MCP Trace ID: {res.json()['traceId']}")
+
+# 3. Direct Test via cURL:
+curl -X POST http://localhost:3000/api/ingest/mcp \\
+  -H "Content-Type: application/json" \\
+  -d '{"sample": true}'`;
+
   const getActiveCode = () => {
     switch (activeTab) {
       case "proxy": return proxySnippet;
       case "autoinstrument": return autoinstrumentSnippet;
+      case "mcp": return mcpSnippet;
       case "python": return pythonSnippet;
       case "typescript": return tsSnippet;
       case "otel": return otelSnippet;
@@ -352,6 +410,15 @@ curl -X POST http://localhost:3000/api/ingest/otel \\
           const proxyData = await res.json();
           createdTraceId = proxyData.id?.replace("chatcmpl-", "") || "";
         }
+      } else if (activeTab === "mcp") {
+        // Send sample MCP payload to ingest endpoint
+        const res = await fetch("/api/ingest/mcp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-ghosttrace-internal": "true" },
+          body: JSON.stringify({ sample: true }),
+        });
+        const data = await res.json();
+        createdTraceId = data.traceId;
       } else if (activeTab === "otel") {
         // Send real OpenTelemetry payload
         const otelPayload = {
@@ -586,7 +653,7 @@ curl -X POST http://localhost:3000/api/ingest/otel \\
 
         {/* Tabs */}
         <div className="flex border-b border-slate-800 gap-4 mb-4 text-xs font-medium overflow-x-auto pb-1">
-          {(["proxy", "autoinstrument", "python", "typescript", "otel", "langgraph", "curl"] as const).map((tab) => (
+          {(["proxy", "autoinstrument", "mcp", "python", "typescript", "otel", "langgraph", "curl"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -600,6 +667,8 @@ curl -X POST http://localhost:3000/api/ingest/otel \\
                 ? "⚡ Zero-Code Proxy"
                 : tab === "autoinstrument"
                 ? "🐍 Auto-Instrument (Patch)"
+                : tab === "mcp"
+                ? "🌐 Anthropic MCP"
                 : tab === "otel"
                 ? "OpenTelemetry (OTel)"
                 : tab === "langgraph"
@@ -619,6 +688,8 @@ curl -X POST http://localhost:3000/api/ingest/otel \\
                 ? "OpenAI Client Proxy Config (Python / TS)"
                 : activeTab === "autoinstrument"
                 ? "sdk/python/ghosttrace.py (Monkeypatch)"
+                : activeTab === "mcp"
+                ? "claude_desktop_config.json / MCP Client"
                 : activeTab === "curl"
                 ? "bash (cURL)"
                 : activeTab === "otel"

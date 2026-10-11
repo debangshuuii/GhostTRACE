@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ConversationSessionData } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
