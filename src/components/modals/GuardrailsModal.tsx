@@ -29,6 +29,11 @@ export function GuardrailsModal({
 }: GuardrailsModalProps) {
   const [rules, setRules] = useState<GuardrailRule[]>(DEFAULT_GUARDRAILS);
 
+  const violations = useMemo(() => {
+    if (!trace || !Array.isArray(trace.nodes)) return [];
+    return auditTraceNodes(trace.nodes, rules);
+  }, [trace, rules]);
+
   if (!isOpen) return null;
 
   const toggleRule = (id: string) => {
@@ -36,11 +41,6 @@ export function GuardrailsModal({
       prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r))
     );
   };
-
-  const violations = useMemo(() => {
-    if (!trace || !Array.isArray(trace.nodes)) return [];
-    return auditTraceNodes(trace.nodes, rules);
-  }, [trace, rules]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">

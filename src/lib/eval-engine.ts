@@ -73,7 +73,7 @@ export function evaluateTraceWithJudge(
 
   // 4. Cost Efficiency Score: Based on wasted tokens ratio
   const wastedRatio = wastedTokens / totalTokens;
-  let costEfficiencyScore = Math.max(65, Math.round((1 - wastedRatio) * 100));
+  const costEfficiencyScore = Math.max(65, Math.round((1 - wastedRatio) * 100));
 
   // Overall combined score
   const overallScorePct = Math.round(

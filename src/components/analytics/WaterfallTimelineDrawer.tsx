@@ -39,11 +39,11 @@ export function WaterfallTimelineDrawer({
     let currentOffset = 0;
     let longestMs = 0;
     let longestId = "";
+    const spans = [];
 
-    const spans = nodes.map((node) => {
+    for (const node of nodes) {
       const latency = Math.max(node.latencyMs || 100, 30);
       const startMs = currentOffset;
-      // Sequential offset advancement
       currentOffset += latency;
 
       if (latency > longestMs) {
@@ -51,13 +51,13 @@ export function WaterfallTimelineDrawer({
         longestId = node.nodeId;
       }
 
-      return {
+      spans.push({
         node,
         startMs,
         latencyMs: latency,
         endMs: startMs + latency,
-      };
-    });
+      });
+    }
 
     const total = Math.max(currentOffset, trace?.durationMs || 1000);
     return { timelineSpans: spans, totalDurationMs: total, longestSpanNodeId: longestId };

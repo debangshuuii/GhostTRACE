@@ -45,7 +45,7 @@ export async function POST(
 
     let generatedTitle = "";
     let generatedContent = "";
-    let isGhost = mode === "speculative_ghost";
+    const isGhost = mode === "speculative_ghost";
     let criticFeedback = "";
     let confidenceScore = 0.95;
 
