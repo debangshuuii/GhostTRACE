@@ -26,6 +26,7 @@ import { WebhookAlertsModal } from "@/components/modals/WebhookAlertsModal";
 import { RegressionSuiteModal } from "@/components/modals/RegressionSuiteModal";
 import { StepReExecuteModal } from "@/components/modals/StepReExecuteModal";
 import { McpControlPlaneModal } from "@/components/modals/McpControlPlaneModal";
+import { RedGhostModal } from "@/components/modals/RedGhostModal";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
 
@@ -49,6 +50,7 @@ export default function Home() {
   const [whatIfModalOpen, setWhatIfModalOpen] = useState(false);
   const [diffModalOpen, setDiffModalOpen] = useState(false);
   const [guardrailsModalOpen, setGuardrailsModalOpen] = useState(false);
+  const [redGhostModalOpen, setRedGhostModalOpen] = useState(false);
   const [fleetModalOpen, setFleetModalOpen] = useState(false);
   const [sdkModalOpen, setSdkModalOpen] = useState(false);
   const [dpoModalOpen, setDpoModalOpen] = useState(false);
@@ -343,6 +345,7 @@ export default function Home() {
         onOpenAnalytics={() => setAnalyticsDrawerOpen(true)}
         onOpenDiff={() => setDiffModalOpen(true)}
         onOpenGuardrails={() => setGuardrailsModalOpen(true)}
+        onOpenRedGhost={() => setRedGhostModalOpen(true)}
         onOpenFleet={() => setFleetModalOpen(true)}
         onOpenSdk={() => setSdkModalOpen(true)}
         onOpenDpo={() => setDpoModalOpen(true)}
@@ -421,6 +424,7 @@ export default function Home() {
             onForkNode={handleOpenFork}
             onReExecuteNode={handleOpenReExecute}
             onPromoteToTest={handlePromoteToTest}
+            onOpenRedGhost={() => setRedGhostModalOpen(true)}
           />
         </main>
       </div>
@@ -597,6 +601,13 @@ export default function Home() {
       <McpControlPlaneModal
         isOpen={mcpModalOpen}
         onClose={() => setMcpModalOpen(false)}
+      />
+
+      {/* Red-Ghost Autonomous Adversarial Red-Teaming & Jailbreak Simulator Modal */}
+      <RedGhostModal
+        isOpen={redGhostModalOpen}
+        onClose={() => setRedGhostModalOpen(false)}
+        trace={selectedTrace}
       />
     </div>
   );

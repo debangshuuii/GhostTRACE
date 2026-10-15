@@ -48,6 +48,7 @@ interface NodeInspectorDrawerProps {
   onForkNode?: (node: TraceNodeData) => void;
   onReExecuteNode?: (node: TraceNodeData) => void;
   onPromoteToTest?: (node: TraceNodeData) => void;
+  onOpenRedGhost?: () => void;
 }
 
 export function NodeInspectorDrawer({
@@ -56,6 +57,7 @@ export function NodeInspectorDrawer({
   onForkNode,
   onReExecuteNode,
   onPromoteToTest,
+  onOpenRedGhost,
 }: NodeInspectorDrawerProps) {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"details" | "diff" | "cot" | "mcp" | "memory" | "raw">("details");
@@ -273,6 +275,17 @@ export function NodeInspectorDrawer({
             >
               <GitFork className="w-3 h-3" />
               <span>Fork</span>
+            </button>
+          )}
+
+          {onOpenRedGhost && (
+            <button
+              onClick={onOpenRedGhost}
+              className="flex items-center gap-1 text-[11px] font-semibold text-rose-400 hover:text-rose-300 px-2 py-1 rounded bg-rose-950/60 border border-rose-800/60 hover:bg-rose-900/60 transition-colors whitespace-nowrap"
+              title="Run Red-Ghost Adversarial Red-Teaming Simulator"
+            >
+              <ShieldAlert className="w-3 h-3 text-rose-400" />
+              <span>Red-Ghost</span>
             </button>
           )}
         </div>

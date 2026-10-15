@@ -34,6 +34,7 @@ import {
   Bell,
   FlaskConical,
   Server,
+  ShieldAlert,
 } from "lucide-react";
 import { detectTraceAnomalies } from "@/lib/anomaly-detector";
 
@@ -55,6 +56,7 @@ interface TraceHeaderProps {
   onOpenAnalytics: () => void;
   onOpenDiff: () => void;
   onOpenGuardrails: () => void;
+  onOpenRedGhost?: () => void;
   onOpenFleet: () => void;
   onOpenSdk: () => void;
   onOpenDpo: () => void;
@@ -85,6 +87,7 @@ export function TraceHeader({
   onOpenAnalytics,
   onOpenDiff,
   onOpenGuardrails,
+  onOpenRedGhost,
   onOpenFleet,
   onOpenSdk,
   onOpenDpo,
@@ -476,6 +479,16 @@ ${n.content}`
         >
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
           <span className="hidden lg:inline">Guardrails</span>
+        </button>
+
+        {/* Red-Ghost Adversarial Red-Teaming & Jailbreak Simulator */}
+        <button
+          onClick={onOpenRedGhost}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900/90 text-rose-200 border border-rose-500/80 text-xs font-semibold transition-all shadow-[0_0_15px_rgba(244,63,94,0.35)]"
+          title="Red-Ghost Autonomous Adversarial Red-Teaming & Jailbreak Simulator"
+        >
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+          <span className="hidden lg:inline">Red-Ghost</span>
         </button>
 
         {/* LLM-as-a-Judge Evals Button */}
