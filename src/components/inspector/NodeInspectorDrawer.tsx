@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { TraceNodeData } from "@/lib/types";
 import { extractMCPMetadata } from "@/lib/mcp-parser";
 import { analyzeChainOfThought } from "@/lib/cot-analyzer";
+import { extractNodeDiffAndMemory } from "@/lib/code-diff-engine";
 import {
   X,
   Ghost,
@@ -32,6 +33,13 @@ import {
   Zap,
   TrendingDown,
   RotateCw,
+  FileCode2,
+  FolderTree,
+  Folder,
+  Plus,
+  Minus,
+  FileDiff,
+  CheckCheck,
 } from "lucide-react";
 
 interface NodeInspectorDrawerProps {
@@ -50,12 +58,15 @@ export function NodeInspectorDrawer({
   onPromoteToTest,
 }: NodeInspectorDrawerProps) {
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"details" | "cot" | "mcp" | "memory" | "raw">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "diff" | "cot" | "mcp" | "memory" | "raw">("details");
+  const [selectedDiffFileIndex, setSelectedDiffFileIndex] = useState(0);
+  const [diffSubTab, setDiffSubTab] = useState<"code_diff" | "vfs" | "scratchpad">("code_diff");
 
   if (!node) return null;
 
   const mcpInfo = extractMCPMetadata(node);
   const cot = analyzeChainOfThought(node.content);
+  const stateDiff = extractNodeDiffAndMemory(node);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(JSON.stringify(node, null, 2));
@@ -163,6 +174,20 @@ export function NodeInspectorDrawer({
             }`}
           >
             Inspection
+          </button>
+          <button
+            onClick={() => setActiveTab("diff")}
+            className={`py-2 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === "diff"
+                ? "border-emerald-400 text-emerald-300"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <FileDiff className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Code Diff &amp; FS</span>
+            <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 font-mono">
+              +{stateDiff.fileDiffs.reduce((a, b) => a + b.additions, 0)}/-{stateDiff.fileDiffs.reduce((a, b) => a + b.deletions, 0)}
+            </span>
           </button>
           <button
             onClick={() => setActiveTab("cot")}
@@ -374,6 +399,299 @@ export function NodeInspectorDrawer({
               </div>
             )}
           </>
+        ) : activeTab === "diff" ? (
+          /* CODE DIFF, WORKING MEMORY & VIRTUAL FILESYSTEM TAB */
+          <div className="space-y-4">
+            {/* Sub-tab Switcher */}
+            <div className="flex gap-2 p-1 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setDiffSubTab("code_diff")}
+                className={`flex-1 py-1.5 px-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 ${
+                  diffSubTab === "code_diff"
+                    ? "bg-emerald-950/80 text-emerald-300 border border-emerald-600/60 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <FileDiff className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Code Diff ({stateDiff.fileDiffs.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiffSubTab("vfs")}
+                className={`flex-1 py-1.5 px-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 ${
+                  diffSubTab === "vfs"
+                    ? "bg-cyan-950/80 text-cyan-300 border border-cyan-600/60 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <FolderTree className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Virtual FS ({stateDiff.virtualFiles.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiffSubTab("scratchpad")}
+                className={`flex-1 py-1.5 px-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 ${
+                  diffSubTab === "scratchpad"
+                    ? "bg-indigo-950/80 text-indigo-300 border border-indigo-600/60 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Brain className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Memory Delta</span>
+              </button>
+            </div>
+
+            {diffSubTab === "code_diff" ? (
+              /* UNIFIED GIT CODE DIFF VIEW */
+              <div className="space-y-3">
+                {/* File Tabs */}
+                {stateDiff.fileDiffs.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {stateDiff.fileDiffs.map((file, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedDiffFileIndex(idx)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all flex items-center gap-2 whitespace-nowrap ${
+                          selectedDiffFileIndex === idx
+                            ? "bg-slate-800 text-slate-100 border-emerald-500 shadow-sm"
+                            : "bg-slate-900/60 text-slate-400 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <FileCode2 className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{file.filename}</span>
+                        <span className="text-[10px] text-emerald-400 font-bold">+{file.additions}</span>
+                        <span className="text-[10px] text-rose-400 font-bold">-{file.deletions}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {(() => {
+                  const currentFile =
+                    stateDiff.fileDiffs[selectedDiffFileIndex] || stateDiff.fileDiffs[0];
+                  if (!currentFile) {
+                    return (
+                      <div className="p-6 text-center text-xs text-slate-500">
+                        No filesystem diffs recorded for this step.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-3">
+                      {/* Ghost Branch Alert if this was a rejected speculative patch */}
+                      {currentFile.isGhostDiff && (
+                        <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-800/60 text-xs space-y-1.5 shadow-[0_0_15px_rgba(168,85,247,0.15)]">
+                          <div className="flex items-center gap-1.5 font-bold text-purple-300">
+                            <Ghost className="w-3.5 h-3.5 text-purple-400" />
+                            <span>Speculative Patch Vetoed Prior to Disk Commit</span>
+                          </div>
+                          <p className="text-[11px] text-purple-200/90 leading-relaxed font-sans">
+                            {currentFile.ghostVerdict || "This mutation was safely pruned by the critic policy."}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Diff File Header */}
+                      <div className="flex items-center justify-between px-3.5 py-2 rounded-t-xl bg-slate-900 border border-slate-800 text-xs font-mono">
+                        <div className="flex items-center gap-2">
+                          <FileCode2 className="w-4 h-4 text-emerald-400" />
+                          <span className="font-semibold text-slate-200">{currentFile.filename}</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 uppercase">
+                            {currentFile.language}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className="text-emerald-400 font-bold">+{currentFile.additions}</span>
+                          <span className="text-rose-400 font-bold">-{currentFile.deletions}</span>
+                        </div>
+                      </div>
+
+                      {/* Diff Line-by-Line Unified Viewer */}
+                      <div className="rounded-b-xl border-x border-b border-slate-800 bg-[#060913] font-mono text-xs overflow-x-auto max-h-[46vh] leading-relaxed">
+                        {currentFile.lines.map((line, lIdx) => {
+                          if (line.type === "header") {
+                            return (
+                              <div
+                                key={lIdx}
+                                className="px-3 py-1 bg-cyan-950/30 text-cyan-400/90 text-[11px] border-y border-cyan-900/30 select-none font-semibold"
+                              >
+                                {line.content}
+                              </div>
+                            );
+                          }
+
+                          if (line.type === "added") {
+                            return (
+                              <div
+                                key={lIdx}
+                                className="flex items-stretch bg-emerald-950/25 hover:bg-emerald-950/40 text-emerald-200 border-l-2 border-emerald-500"
+                              >
+                                <span className="w-9 px-2 py-0.5 text-right text-[10px] text-emerald-600 select-none border-r border-slate-800/80 shrink-0">
+                                  {line.newLineNumber}
+                                </span>
+                                <span className="w-5 text-center text-[11px] text-emerald-400 font-bold select-none shrink-0">
+                                  +
+                                </span>
+                                <span className="px-2 py-0.5 whitespace-pre overflow-x-visible">
+                                  {line.content.replace(/^\+\s*/, "")}
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          if (line.type === "deleted") {
+                            return (
+                              <div
+                                key={lIdx}
+                                className="flex items-stretch bg-rose-950/25 hover:bg-rose-950/40 text-rose-200 border-l-2 border-rose-500"
+                              >
+                                <span className="w-9 px-2 py-0.5 text-right text-[10px] text-rose-600 select-none border-r border-slate-800/80 shrink-0">
+                                  {line.oldLineNumber}
+                                </span>
+                                <span className="w-5 text-center text-[11px] text-rose-400 font-bold select-none shrink-0">
+                                  -
+                                </span>
+                                <span className="px-2 py-0.5 whitespace-pre line-through opacity-85 overflow-x-visible">
+                                  {line.content.replace(/^-\s*/, "")}
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div
+                              key={lIdx}
+                              className="flex items-stretch text-slate-400 hover:bg-slate-900/40"
+                            >
+                              <span className="w-9 px-2 py-0.5 text-right text-[10px] text-slate-600 select-none border-r border-slate-800/80 shrink-0">
+                                {line.newLineNumber}
+                              </span>
+                              <span className="w-5 text-center text-[11px] text-slate-600 select-none shrink-0">
+                                &nbsp;
+                              </span>
+                              <span className="px-2 py-0.5 whitespace-pre overflow-x-visible">
+                                {line.content}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : diffSubTab === "vfs" ? (
+              /* VIRTUAL FILESYSTEM & CONTAINER SANDBOX VIEW */
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider font-mono">
+                    Workspace Filesystem Map ({stateDiff.virtualFiles.length} files tracked)
+                  </span>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden divide-y divide-slate-800/60 text-xs font-mono">
+                    {stateDiff.virtualFiles.map((vFile, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 flex items-center justify-between hover:bg-slate-800/40 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <FileCode2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                          <span className="text-slate-200 font-semibold">{vFile.path}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-slate-400 text-[11px]">{vFile.size}</span>
+                          <span
+                            className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                              vFile.status === "MODIFIED"
+                                ? "bg-emerald-950 text-emerald-300 border border-emerald-800"
+                                : vFile.status === "CREATED"
+                                ? "bg-cyan-950 text-cyan-300 border border-cyan-800"
+                                : vFile.status === "GHOST_REJECTED"
+                                ? "bg-purple-950 text-purple-300 border border-purple-800"
+                                : "bg-slate-800 text-slate-400 border border-slate-700"
+                            }`}
+                          >
+                            {vFile.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sandbox Container Environment Snapshot */}
+                <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800 space-y-2.5 text-xs font-mono">
+                  <div className="font-semibold text-slate-200 text-[11px] flex items-center justify-between pb-1.5 border-b border-slate-800">
+                    <span className="text-cyan-400">Sandbox Isolation Environment</span>
+                    <span className="text-emerald-400 text-[10px]">
+                      Exit Code: {stateDiff.activeEnvironment.exitCode} (PASS)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
+                    <div>
+                      <span className="text-slate-500">CWD:</span> {stateDiff.activeEnvironment.cwd}
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Runtime:</span> {stateDiff.activeEnvironment.runtime}
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-slate-500">Container:</span> {stateDiff.activeEnvironment.sandboxContainer}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* WORKING MEMORY SCRATCHPAD DELTAS VIEW */
+              <div className="space-y-3">
+                <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider font-mono">
+                  Scratchpad State Transitions Before vs After Step
+                </span>
+                <div className="space-y-2">
+                  {stateDiff.memoryDeltas.map((delta, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl border border-slate-800/80 bg-slate-900/50 text-xs space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-slate-200">{delta.key}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 font-mono">
+                            {delta.category}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase ${
+                            delta.type === "ADDED"
+                              ? "bg-emerald-950 text-emerald-300 border border-emerald-800"
+                              : delta.type === "MODIFIED"
+                              ? "bg-amber-950 text-amber-300 border border-amber-800"
+                              : delta.type === "REMOVED"
+                              ? "bg-rose-950 text-rose-300 border border-rose-800"
+                              : "bg-slate-800 text-slate-400 border border-slate-700"
+                          }`}
+                        >
+                          {delta.type}
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] font-mono space-y-1 pt-1">
+                        {delta.previousValue && (
+                          <div className="text-rose-400/80 line-through">
+                            - {delta.previousValue}
+                          </div>
+                        )}
+                        <div className="text-emerald-400">
+                          + {delta.currentValue}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         ) : activeTab === "cot" ? (
           /* CHAIN OF THOUGHT (CoT) REASONING PROFILER TAB */
           <div className="space-y-4">

@@ -13,9 +13,12 @@ import {
   Clock,
   Coins,
   Cpu,
+  FileDiff,
+  FileCode2,
 } from "lucide-react";
 import { TraceNodeData } from "@/lib/types";
 import { analyzeChainOfThought } from "@/lib/cot-analyzer";
+import { extractNodeDiffAndMemory } from "@/lib/code-diff-engine";
 
 // Base Wrapper for consistent styling
 const NodeWrapper = ({
@@ -169,6 +172,11 @@ ThinkingNode.displayName = "ThinkingNode";
 // 3. Tool Call Node
 export const ToolCallNode = memo((props: NodeProps) => {
   const node = props.data as unknown as TraceNodeData;
+  const stateDiff = extractNodeDiffAndMemory(node);
+  const totalAdditions = stateDiff.fileDiffs.reduce((a, b) => a + b.additions, 0);
+  const totalDeletions = stateDiff.fileDiffs.reduce((a, b) => a + b.deletions, 0);
+  const hasDiff = totalAdditions > 0 || totalDeletions > 0;
+
   return (
     <NodeWrapper
       selected={Boolean(props.selected)}
@@ -200,6 +208,15 @@ export const ToolCallNode = memo((props: NodeProps) => {
           <Clock className="w-3 h-3" />
           {node.latencyMs}ms
         </span>
+        {hasDiff && (
+          <span
+            className="flex items-center gap-1 font-mono text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 font-semibold"
+            title="Git code diff in working memory"
+          >
+            <FileDiff className="w-2.5 h-2.5 text-emerald-400" />
+            <span>+{totalAdditions}/-{totalDeletions}</span>
+          </span>
+        )}
         <span className="flex items-center gap-1">
           <Coins className="w-3 h-3" />
           ${node.cost?.toFixed(4) || "0.00"}
@@ -218,6 +235,8 @@ ToolCallNode.displayName = "ToolCallNode";
 // 4. Ghost Branch Node (REJECTED ALTERNATIVE)
 export const GhostBranchNode = memo((props: NodeProps) => {
   const node = props.data as unknown as TraceNodeData;
+  const stateDiff = extractNodeDiffAndMemory(node);
+
   return (
     <NodeWrapper
       selected={Boolean(props.selected)}
@@ -252,6 +271,17 @@ export const GhostBranchNode = memo((props: NodeProps) => {
             <strong className="text-rose-300">Critic Verdict: </strong>
             {node.ghostReason}
           </span>
+        </div>
+      )}
+
+      {/* Speculative Diff Tag */}
+      {stateDiff.fileDiffs.some((f) => f.isGhostDiff) && (
+        <div className="mt-2 flex items-center justify-between text-[9px] px-2 py-1 rounded bg-purple-950/60 border border-purple-700/60 text-purple-200 font-mono">
+          <span className="flex items-center gap-1 font-semibold text-purple-300">
+            <FileCode2 className="w-3 h-3 text-purple-400" />
+            <span>SPECULATIVE PATCH VETOED</span>
+          </span>
+          <span className="text-rose-400 font-bold uppercase tracking-wider">Uncommitted</span>
         </div>
       )}
 
