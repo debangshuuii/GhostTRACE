@@ -36,6 +36,7 @@ export function LiveAgentStudioModal({
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("deepseek-r1-distill");
   const [criticSensitivity, setCriticSensitivity] = useState("Strict");
+  const [executionMode, setExecutionMode] = useState<"best_of_n" | "standard">("best_of_n");
   const [running, setRunning] = useState(false);
   const [progressStatus, setProgressStatus] = useState<string | null>(null);
 
@@ -91,6 +92,7 @@ export function LiveAgentStudioModal({
           baseUrl: baseUrl.trim() || undefined,
           model,
           criticSensitivity,
+          executionMode,
         }),
       });
 
@@ -243,6 +245,51 @@ export function LiveAgentStudioModal({
               )}
             </div>
           )}
+
+          {/* Execution Topology Selector */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-slate-300 flex items-center justify-between">
+              <span>Execution Topology</span>
+              <span className="text-[10px] font-mono text-purple-400 font-semibold">Ghost Engine 2.0</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setExecutionMode("best_of_n")}
+                className={`p-2.5 rounded-xl border text-left transition-all ${
+                  executionMode === "best_of_n"
+                    ? "bg-purple-950/60 border-purple-500 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+                    : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-xs text-purple-300">
+                  <Ghost className="w-3.5 h-3.5 text-purple-400" />
+                  <span>MCTS Best-of-3 Speculation</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
+                  Generates 3 speculative hypotheses in parallel, auto-pruning 2 suboptimal paths into Ghost Branches.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setExecutionMode("standard")}
+                className={`p-2.5 rounded-xl border text-left transition-all ${
+                  executionMode === "standard"
+                    ? "bg-cyan-950/60 border-cyan-500 text-cyan-200 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                    : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-xs text-cyan-300">
+                  <Play className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Standard Direct ReAct Loop</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">
+                  Single-trunk linear agent execution loop with reactive tool invocation.
+                </p>
+              </button>
+            </div>
+          </div>
 
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-1">

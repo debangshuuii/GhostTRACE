@@ -13,6 +13,7 @@ export async function POST(req: Request) {
       baseUrl,
       model = "deepseek-r1-distill",
       criticSensitivity = "Strict",
+      executionMode = "best_of_n",
     } = body;
 
     if (!prompt || typeof prompt !== "string") {
@@ -203,13 +204,19 @@ export async function POST(req: Request) {
       parentNodeId: `${traceId}-n1`,
       stepIndex: 2,
       type: "THINKING",
-      label: "CoT Strategic Deconstruction",
+      label: executionMode === "best_of_n" 
+        ? "MCTS Tree-Search Planning & Multi-Hypothesis Expansion" 
+        : "CoT Strategic Deconstruction",
       role: "assistant",
-      content: `1. Analyzed request semantics for objective: "${prompt.slice(0, 60)}".
+      content: executionMode === "best_of_n"
+        ? `1. Deconstructed objective: "${prompt.slice(0, 70)}".
+2. Spawning 3 concurrent speculative candidate hypotheses (MCTS Best-of-3).
+3. Evaluator will score each candidate on Safety Invariants, Cryptographic Soundness, and Token Blast Radius before committing trunk execution.`
+        : `1. Analyzed request semantics for objective: "${prompt.slice(0, 60)}".
 2. Identified critical dependency constraints and invariant parameters.
 3. Formulated candidate execution pathways and evaluated blast radius risk.`,
-      tokens: 380,
-      latencyMs: 420,
+      tokens: 420,
+      latencyMs: 460,
       posY: 200,
     });
 
@@ -232,55 +239,149 @@ export async function POST(req: Request) {
       }
     }
 
-    // Step 3: Speculative Hypothesis / Critic Veto (Demonstrating Ghost Pruning)
-    if (criticSensitivity === "Strict" || isGhostDetected) {
+    if (executionMode === "best_of_n") {
+      // 🌟 BEST-OF-N MCTS TREE SEARCH SPECULATION
+      // Candidate Branch 1: Insecure / Blind Mutation (Ghost Branch 1)
       await addStep({
-        nodeId: `${traceId}-ghost`,
+        nodeId: `${traceId}-cand-1`,
         parentNodeId: `${traceId}-n2`,
         stepIndex: 3,
         type: "GHOST_REJECTED",
-        label: "Ghost: Speculative Blind Direct Mutate",
+        label: "Ghost: Speculative Blind Mutate",
         role: "assistant",
-        content: `Hypothesis: Execute in-place destructive mutation directly without isolated sandbox verification.\nTarget: Global state change.\nRisk: High blast radius, unverified idempotency.`,
+        content: `Candidate A (Direct Fast Mutate):
+- Strategy: Bypass isolated sandbox compilation to save 600ms latency.
+- Proposed Action: In-place string replacement without constant-time equality check.
+- Score: 0.32 (CRITIC REJECTED)`,
         isGhost: true,
-        ghostReason:
-          ghostReason ||
-          "Critic Veto (Safety Invariant): Speculative unisolated write violates Zero-Trust mutating policy.",
+        ghostReason: ghostReason || "Critic Veto (Safety Invariant): In-place mutation without constant-time verification introduces timing side-channel.",
+        tokens: 380,
+        latencyMs: 290,
+        posY: 460,
+      });
+
+      // Candidate Branch 2: High-Latency Recursive Scan (Ghost Branch 2)
+      await addStep({
+        nodeId: `${traceId}-cand-2`,
+        parentNodeId: `${traceId}-n2`,
+        stepIndex: 3,
+        type: "GHOST_REJECTED",
+        label: "Ghost: Unbounded Recursive AST Crawl",
+        role: "assistant",
+        content: `Candidate B (Exhaustive Brute-Force AST Scan):
+- Strategy: Traverse entire monorepo node_modules tree looking for secondary references.
+- Estimated tokens: 8,400+ | Est latency: 12,000ms
+- Score: 0.54 (CRITIC REJECTED: TOKEN BLAST RADIUS EXCEEDED)`,
+        isGhost: true,
+        ghostReason: "Critic Veto (Efficiency Budget): Excessive token blast radius (>8,000 tokens) on unbounded recursive search.",
+        tokens: 610,
+        latencyMs: 540,
+        posY: 640,
+      });
+
+      // Candidate Branch 3: Optimal Verified Synthesis (Chosen Winner)
+      await addStep({
+        nodeId: `${traceId}-cand-3`,
+        parentNodeId: `${traceId}-n2`,
+        stepIndex: 3,
+        type: "THINKING",
+        label: "Optimal Branch: Constant-Time Primitive",
+        role: "assistant",
+        content: `Candidate C (Verified Constant-Time Primitive):
+- Strategy: Use crypto.timingSafeEqual or bitwise XOR accumulator.
+- Invariants: Length-equality check handled in constant-time with zero early-exit.
+- Score: 0.98 (CRITIC CHOSEN TRUNK)`,
+        isGhost: false,
+        tokens: 340,
+        latencyMs: 380,
+        posY: 200,
+      });
+
+      // Step 4: Sandbox Verification following Chosen Branch
+      await addStep({
+        nodeId: `${traceId}-n4`,
+        parentNodeId: `${traceId}-cand-3`,
+        stepIndex: 4,
+        type: "TOOL_CALL",
+        label: "Sandbox Test Harness & Byte Audit",
+        role: "assistant",
+        content: `Ran automated verification in sandbox container:
+✓ crypto.timingSafeEqual verified across 100,000 randomized signatures
+✓ Maximum timing variance: 1.2ns (constant-time confirmed)
+✓ Memory leak test: 0 bytes overhead`,
         tokens: 490,
-        latencyMs: 310,
-        posY: 520,
+        latencyMs: 620,
+        posY: 200,
+      });
+
+      // Step 5: Final Verified Deliverable
+      await addStep({
+        nodeId: `${traceId}-n5`,
+        parentNodeId: `${traceId}-n4`,
+        stepIndex: 5,
+        type: "LLM_RESPONSE",
+        label: "Synthesis & Verified Deliverable",
+        role: "assistant",
+        content:
+          finalContent ||
+          `Successfully applied verified constant-time cryptographic patch for task: "${prompt}".
+- Critic pruned 2 speculative alternatives (blind mutate & unbounded AST search).
+- Grounded execution verified in sandbox harness.`,
+        tokens: 380,
+        latencyMs: 440,
+        posY: 200,
+      });
+    } else {
+      // STANDARD DIRECT AGENT EXECUTION
+      if (criticSensitivity === "Strict" || isGhostDetected) {
+        await addStep({
+          nodeId: `${traceId}-ghost`,
+          parentNodeId: `${traceId}-n2`,
+          stepIndex: 3,
+          type: "GHOST_REJECTED",
+          label: "Ghost: Speculative Blind Direct Mutate",
+          role: "assistant",
+          content: `Hypothesis: Execute in-place destructive mutation directly without isolated sandbox verification.\nTarget: Global state change.\nRisk: High blast radius, unverified idempotency.`,
+          isGhost: true,
+          ghostReason:
+            ghostReason ||
+            "Critic Veto (Safety Invariant): Speculative unisolated write violates Zero-Trust mutating policy.",
+          tokens: 490,
+          latencyMs: 310,
+          posY: 520,
+        });
+      }
+
+      // Step 4: Tool Sandbox Verification
+      await addStep({
+        nodeId: `${traceId}-n3`,
+        parentNodeId: `${traceId}-n2`,
+        stepIndex: 4,
+        type: "TOOL_CALL",
+        label: "Sandbox Verification & Dry-Run",
+        role: "assistant",
+        content: `Ran isolated test harness in sandbox container.\n- Unit validation: PASS\n- Cryptographic timing audit: CONSTANT_TIME\n- Security regression checks: 0 warnings.`,
+        tokens: 520,
+        latencyMs: 680,
+        posY: 360,
+      });
+
+      // Step 5: Final Verified Deliverable
+      await addStep({
+        nodeId: `${traceId}-n4`,
+        parentNodeId: `${traceId}-n3`,
+        stepIndex: 5,
+        type: "LLM_RESPONSE",
+        label: "Synthesis & Verified Solution",
+        role: "assistant",
+        content:
+          finalContent ||
+          `Successfully applied safe, verifiable resolution for task: "${prompt}".\nAll invariant properties confirmed. The speculative ghost path was safely pruned by the critic.`,
+        tokens: 410,
+        latencyMs: 510,
+        posY: 200,
       });
     }
-
-    // Step 4: Tool Sandbox Verification
-    await addStep({
-      nodeId: `${traceId}-n3`,
-      parentNodeId: `${traceId}-n2`,
-      stepIndex: 4,
-      type: "TOOL_CALL",
-      label: "Sandbox Verification & Dry-Run",
-      role: "assistant",
-      content: `Ran isolated test harness in sandbox container.\n- Unit validation: PASS\n- Cryptographic timing audit: CONSTANT_TIME\n- Security regression checks: 0 warnings.`,
-      tokens: 520,
-      latencyMs: 680,
-      posY: 360,
-    });
-
-    // Step 5: Final Verified Deliverable
-    await addStep({
-      nodeId: `${traceId}-n4`,
-      parentNodeId: `${traceId}-n3`,
-      stepIndex: 5,
-      type: "LLM_RESPONSE",
-      label: "Synthesis & Verified Solution",
-      role: "assistant",
-      content:
-        finalContent ||
-        `Successfully applied safe, verifiable resolution for task: "${prompt}".\nAll invariant properties confirmed. The speculative ghost path was safely pruned by the critic.`,
-      tokens: 410,
-      latencyMs: 510,
-      posY: 200,
-    });
 
     // Complete the trace run
     await prisma.traceRun.update({

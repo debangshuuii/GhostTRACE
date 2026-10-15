@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { TraceNodeData } from "@/lib/types";
 import { extractMCPMetadata } from "@/lib/mcp-parser";
+import { analyzeChainOfThought } from "@/lib/cot-analyzer";
 import {
   X,
   Ghost,
@@ -27,21 +28,34 @@ import {
   ShieldAlert,
   ArrowRight,
   Database,
+  FlaskConical,
+  Zap,
+  TrendingDown,
+  RotateCw,
 } from "lucide-react";
 
 interface NodeInspectorDrawerProps {
   node: TraceNodeData | null;
   onClose: () => void;
   onForkNode?: (node: TraceNodeData) => void;
+  onReExecuteNode?: (node: TraceNodeData) => void;
+  onPromoteToTest?: (node: TraceNodeData) => void;
 }
 
-export function NodeInspectorDrawer({ node, onClose, onForkNode }: NodeInspectorDrawerProps) {
+export function NodeInspectorDrawer({
+  node,
+  onClose,
+  onForkNode,
+  onReExecuteNode,
+  onPromoteToTest,
+}: NodeInspectorDrawerProps) {
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"details" | "mcp" | "memory" | "raw">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "cot" | "mcp" | "memory" | "raw">("details");
 
   if (!node) return null;
 
   const mcpInfo = extractMCPMetadata(node);
+  const cot = analyzeChainOfThought(node.content);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(JSON.stringify(node, null, 2));
@@ -139,10 +153,10 @@ export function NodeInspectorDrawer({ node, onClose, onForkNode }: NodeInspector
 
       {/* Tabs & Action */}
       <div className="flex items-center justify-between border-b border-slate-800 px-5 bg-slate-950/40">
-        <div className="flex gap-3">
+        <div className="flex gap-2.5 overflow-x-auto py-1">
           <button
             onClick={() => setActiveTab("details")}
-            className={`py-2.5 text-xs font-medium border-b-2 transition-all ${
+            className={`py-2 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
               activeTab === "details"
                 ? "border-cyan-400 text-cyan-300"
                 : "border-transparent text-slate-400 hover:text-slate-200"
@@ -151,8 +165,22 @@ export function NodeInspectorDrawer({ node, onClose, onForkNode }: NodeInspector
             Inspection
           </button>
           <button
+            onClick={() => setActiveTab("cot")}
+            className={`py-2 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === "cot"
+                ? "border-indigo-400 text-indigo-300"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Brain className="w-3.5 h-3.5 text-indigo-400" />
+            <span>CoT Reasoning</span>
+            <span className="text-[9px] px-1 py-0.2 rounded bg-indigo-900/60 text-indigo-300 font-mono">
+              {cot.efficiencyScore}%
+            </span>
+          </button>
+          <button
             onClick={() => setActiveTab("mcp")}
-            className={`py-2.5 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`py-2 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === "mcp"
                 ? "border-cyan-400 text-cyan-300"
                 : "border-transparent text-slate-400 hover:text-slate-200"
@@ -166,7 +194,7 @@ export function NodeInspectorDrawer({ node, onClose, onForkNode }: NodeInspector
           </button>
           <button
             onClick={() => setActiveTab("memory")}
-            className={`py-2.5 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`py-2 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === "memory"
                 ? "border-cyan-400 text-cyan-300"
                 : "border-transparent text-slate-400 hover:text-slate-200"
@@ -177,7 +205,7 @@ export function NodeInspectorDrawer({ node, onClose, onForkNode }: NodeInspector
           </button>
           <button
             onClick={() => setActiveTab("raw")}
-            className={`py-2.5 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`py-2 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === "raw"
                 ? "border-cyan-400 text-cyan-300"
                 : "border-transparent text-slate-400 hover:text-slate-200"
@@ -188,17 +216,41 @@ export function NodeInspectorDrawer({ node, onClose, onForkNode }: NodeInspector
           </button>
         </div>
 
-        {/* Fork Button */}
-        {onForkNode && (
-          <button
-            onClick={() => onForkNode(node)}
-            className="flex items-center gap-1 text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded bg-cyan-950/60 border border-cyan-800/60 hover:bg-cyan-900/60 transition-colors"
-            title="Fork Counterfactual Branch from this step"
-          >
-            <GitFork className="w-3 h-3" />
-            <span>Fork Step</span>
-          </button>
-        )}
+        {/* Action Buttons */}
+        <div className="flex items-center gap-1.5 ml-2">
+          {node.isGhost && onPromoteToTest && (
+            <button
+              onClick={() => onPromoteToTest(node)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-purple-400 hover:text-purple-300 px-2 py-1 rounded bg-purple-950/60 border border-purple-800/60 hover:bg-purple-900/60 transition-colors whitespace-nowrap"
+              title="Promote pruned ghost failure into an automated regression unit test"
+            >
+              <FlaskConical className="w-3 h-3 text-purple-400" />
+              <span>Promote to Test</span>
+            </button>
+          )}
+
+          {onReExecuteNode && (
+            <button
+              onClick={() => onReExecuteNode(node)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded bg-emerald-950/60 border border-emerald-800/60 hover:bg-emerald-900/60 transition-colors whitespace-nowrap"
+              title="Edit step in canvas and re-execute downstream path"
+            >
+              <RotateCw className="w-3 h-3 text-emerald-400" />
+              <span>Re-run</span>
+            </button>
+          )}
+
+          {onForkNode && (
+            <button
+              onClick={() => onForkNode(node)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 px-2 py-1 rounded bg-cyan-950/60 border border-cyan-800/60 hover:bg-cyan-900/60 transition-colors whitespace-nowrap"
+              title="Fork Counterfactual Branch from this step"
+            >
+              <GitFork className="w-3 h-3" />
+              <span>Fork</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Content Body */}
@@ -322,6 +374,151 @@ export function NodeInspectorDrawer({ node, onClose, onForkNode }: NodeInspector
               </div>
             )}
           </>
+        ) : activeTab === "cot" ? (
+          /* CHAIN OF THOUGHT (CoT) REASONING PROFILER TAB */
+          <div className="space-y-4">
+            {/* Cognitive Metrics Grid */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="p-3 rounded-xl bg-indigo-950/30 border border-indigo-800/50 space-y-1">
+                <div className="text-[10px] font-mono text-indigo-300/80 uppercase">Reasoning Efficiency</div>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-xl font-bold font-mono ${
+                    cot.efficiencyScore >= 80
+                      ? "text-emerald-400"
+                      : cot.efficiencyScore >= 60
+                      ? "text-amber-400"
+                      : "text-rose-400"
+                  }`}>
+                    {cot.efficiencyScore}%
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {cot.efficiencyScore >= 80 ? "Optimal" : "Drifting"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-indigo-950/30 border border-indigo-800/50 space-y-1">
+                <div className="text-[10px] font-mono text-indigo-300/80 uppercase">Hesitation / Drift</div>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-xl font-bold font-mono ${
+                    cot.hesitationRatePct > 30 ? "text-rose-400" : "text-indigo-300"
+                  }`}>
+                    {cot.hesitationRatePct}%
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {cot.circularLoopDetected ? "Loop Detected" : "Linear Flow"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                <div className="text-[10px] font-mono text-slate-400 uppercase">Thinking Token Blast</div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-bold font-mono text-slate-200">
+                    {cot.totalTokens}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">tokens</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                <div className="text-[10px] font-mono text-slate-400 uppercase">Cognitive Velocity</div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-bold font-mono text-cyan-400">
+                    {cot.cognitiveVelocityScore}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">/100 index</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Anomalies & Circular Loops Alerts */}
+            {cot.anomalies.length > 0 && (
+              <div className="p-3.5 rounded-xl bg-rose-950/30 border border-rose-800/50 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Cognitive Drift &amp; Reasoning Bottlenecks</span>
+                </div>
+                <ul className="text-[11px] text-rose-200/90 space-y-1 list-disc pl-4 font-sans">
+                  {cot.anomalies.map((ano, i) => (
+                    <li key={i}>{ano}</li>
+                  ))}
+                </ul>
+                {cot.recommendations.length > 0 && (
+                  <div className="pt-2 border-t border-rose-900/50 text-[10px] text-rose-300/80 space-y-0.5">
+                    <span className="font-semibold text-rose-200">Suggested Action:</span>
+                    <p>{cot.recommendations.join(" ")}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 4-Phase CoT Trajectory Breakdown */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">
+                  Semantic Reasoning Phases
+                </span>
+                <span className="text-[10px] font-mono text-indigo-400">
+                  Deconstruction (4 Phases)
+                </span>
+              </div>
+
+              {/* Progress Stack */}
+              <div className="w-full h-2 rounded-full bg-slate-900 overflow-hidden flex gap-1 border border-slate-800 p-0.5">
+                {cot.phases.map((p, idx) => (
+                  <div
+                    key={idx}
+                    title={`${p.label}: ${p.percentage}% (${p.tokenCount} tok)`}
+                    style={{
+                      width: `${Math.max(5, p.percentage)}%`,
+                      backgroundColor: p.color,
+                    }}
+                    className="h-full rounded-sm opacity-90 hover:opacity-100 transition-all cursor-pointer"
+                  />
+                ))}
+              </div>
+
+              {/* Phase Cards */}
+              <div className="space-y-2 pt-1">
+                {cot.phases.map((phase, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-xl border border-slate-800/80 bg-slate-900/40 text-xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: phase.color }}
+                        />
+                        <span className="font-semibold text-slate-200 font-mono text-[11px]">
+                          {phase.label}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {phase.tokenCount} tok ({phase.percentage}%)
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-sans leading-relaxed line-clamp-3 italic">
+                      {phase.snippet || "No explicit content matched this phase segment."}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Complete Raw Thinking Text */}
+            <div className="space-y-1.5 pt-2">
+              <label className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Brain className="w-3 h-3" />
+                <span>Complete Internal Reasoning Block (&lt;think&gt;)</span>
+              </label>
+              <div className="p-3.5 rounded-xl bg-black/60 border border-indigo-950 text-xs font-mono text-indigo-200/90 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+                {node.content}
+              </div>
+            </div>
+          </div>
         ) : activeTab === "mcp" ? (
           /* MODEL CONTEXT PROTOCOL (MCP) TAB */
           <div className="space-y-4">

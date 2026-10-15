@@ -15,6 +15,7 @@ import {
   Cpu,
 } from "lucide-react";
 import { TraceNodeData } from "@/lib/types";
+import { analyzeChainOfThought } from "@/lib/cot-analyzer";
 
 // Base Wrapper for consistent styling
 const NodeWrapper = ({
@@ -82,6 +83,8 @@ UserPromptNode.displayName = "UserPromptNode";
 // 2. Thinking / Reasoning Chain Node
 export const ThinkingNode = memo((props: NodeProps) => {
   const node = props.data as unknown as TraceNodeData;
+  const cot = analyzeChainOfThought(node.content);
+
   return (
     <NodeWrapper
       selected={Boolean(props.selected)}
@@ -98,15 +101,50 @@ export const ThinkingNode = memo((props: NodeProps) => {
           <Brain className="w-3.5 h-3.5 animate-pulse text-indigo-400" />
           <span>REASONING / COT</span>
         </div>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900/60 text-indigo-300 border border-indigo-700/60 font-mono">
-          {node.tokens ? `${node.tokens} tok` : "think"}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900/60 text-indigo-300 border border-indigo-700/60 font-mono">
+            {node.tokens ? `${node.tokens} tok` : `${cot.totalTokens} tok`}
+          </span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 font-mono font-medium">
+            {cot.efficiencyScore}% eff
+          </span>
+        </div>
       </div>
       <div className="text-xs font-medium text-slate-200 mb-1">{node.label}</div>
       <p className="text-[11px] text-slate-400 line-clamp-2 italic leading-relaxed">
         &quot;{node.content}&quot;
       </p>
-      <div className="flex items-center gap-3 mt-2.5 pt-2 border-t border-indigo-900/50 text-[10px] text-indigo-300/80">
+
+      {/* Mini CoT Phase Progress Bar */}
+      <div className="mt-2.5">
+        <div className="flex items-center justify-between text-[9px] text-slate-400 mb-1 font-mono">
+          <span>CoT Trajectory</span>
+          {cot.hesitationRatePct > 25 ? (
+            <span className="text-rose-400 font-semibold flex items-center gap-0.5">
+              ⚠️ {cot.hesitationRatePct}% drift
+            </span>
+          ) : cot.circularLoopDetected ? (
+            <span className="text-amber-400 font-semibold">🔄 loop</span>
+          ) : (
+            <span className="text-indigo-300">converged</span>
+          )}
+        </div>
+        <div className="w-full h-1.5 rounded-full bg-slate-800/80 overflow-hidden flex gap-0.5">
+          {cot.phases.map((p, idx) => (
+            <div
+              key={idx}
+              title={`${p.label}: ${p.percentage}% (${p.tokenCount} tok)`}
+              style={{
+                width: `${Math.max(5, p.percentage)}%`,
+                backgroundColor: p.color,
+              }}
+              className="h-full rounded-sm opacity-90 hover:opacity-100 transition-opacity"
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 mt-2.5 pt-2 border-t border-indigo-900/50 text-[10px] text-indigo-300/80">
         <span className="flex items-center gap-1">
           <Clock className="w-3 h-3" />
           {node.latencyMs}ms

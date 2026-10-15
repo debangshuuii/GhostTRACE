@@ -23,6 +23,9 @@ import { WaterfallTimelineDrawer } from "@/components/analytics/WaterfallTimelin
 import { SwarmTopologyModal } from "@/components/modals/SwarmTopologyModal";
 import { AnomalyDriftModal } from "@/components/modals/AnomalyDriftModal";
 import { WebhookAlertsModal } from "@/components/modals/WebhookAlertsModal";
+import { RegressionSuiteModal } from "@/components/modals/RegressionSuiteModal";
+import { StepReExecuteModal } from "@/components/modals/StepReExecuteModal";
+import { McpControlPlaneModal } from "@/components/modals/McpControlPlaneModal";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
 
@@ -58,6 +61,10 @@ export default function Home() {
   const [anomalyModalOpen, setAnomalyModalOpen] = useState(false);
   const [breakpointModalOpen, setBreakpointModalOpen] = useState(false);
   const [alertsModalOpen, setAlertsModalOpen] = useState(false);
+  const [regressionModalOpen, setRegressionModalOpen] = useState(false);
+  const [reExecuteModalOpen, setReExecuteModalOpen] = useState(false);
+  const [mcpModalOpen, setMcpModalOpen] = useState(false);
+  const [nodeToReExecute, setNodeToReExecute] = useState<TraceNodeData | null>(null);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
   const [isLiveConnected, setIsLiveConnected] = useState(false);
@@ -304,6 +311,24 @@ export default function Home() {
     setWhatIfModalOpen(true);
   };
 
+  const handleOpenReExecute = (node: TraceNodeData) => {
+    setNodeToReExecute(node);
+    setReExecuteModalOpen(true);
+  };
+
+  const handlePromoteToTest = async (node: TraceNodeData) => {
+    try {
+      await fetch("/api/evals/regression-suite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_from_node", trace: selectedTrace, node }),
+      });
+      setRegressionModalOpen(true);
+    } catch (err) {
+      console.error("Failed to promote node to regression test:", err);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#070b12] text-slate-100 font-sans">
       {/* Top Header */}
@@ -324,6 +349,8 @@ export default function Home() {
         onOpenOptimizer={() => setOptimizerModalOpen(true)}
         onOpenStudio={() => setStudioModalOpen(true)}
         onOpenEvals={() => setEvalsModalOpen(true)}
+        onOpenRegressionSuite={() => setRegressionModalOpen(true)}
+        onOpenMcp={() => setMcpModalOpen(true)}
         onOpenKeys={() => setKeysModalOpen(true)}
         onOpenWaterfall={() => setWaterfallDrawerOpen(true)}
         onOpenSwarmTopology={() => setSwarmModalOpen(true)}
@@ -392,6 +419,8 @@ export default function Home() {
             node={selectedNode}
             onClose={() => setSelectedNode(null)}
             onForkNode={handleOpenFork}
+            onReExecuteNode={handleOpenReExecute}
+            onPromoteToTest={handlePromoteToTest}
           />
         </main>
       </div>
@@ -541,6 +570,33 @@ export default function Home() {
         isOpen={alertsModalOpen}
         onClose={() => setAlertsModalOpen(false)}
         workspaceId={selectedWorkspaceId}
+      />
+
+      {/* Ghost-to-Test Continuous Regression Golden Suite Modal */}
+      <RegressionSuiteModal
+        isOpen={regressionModalOpen}
+        onClose={() => setRegressionModalOpen(false)}
+      />
+
+      {/* Live In-DAG Step Re-Execution Modal (Jupyter for Agent DAGs) */}
+      <StepReExecuteModal
+        isOpen={reExecuteModalOpen}
+        onClose={() => {
+          setReExecuteModalOpen(false);
+          setNodeToReExecute(null);
+        }}
+        node={nodeToReExecute}
+        traceId={selectedTraceId}
+        onReExecutionComplete={() => {
+          if (selectedTraceId) fetchTraceDetails(selectedTraceId);
+          fetchTraces(selectedTraceId || undefined);
+        }}
+      />
+
+      {/* Model Context Protocol (MCP) Live Control Plane Modal */}
+      <McpControlPlaneModal
+        isOpen={mcpModalOpen}
+        onClose={() => setMcpModalOpen(false)}
       />
     </div>
   );

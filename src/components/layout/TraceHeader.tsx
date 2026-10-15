@@ -32,6 +32,8 @@ import {
   Network,
   AlertTriangle,
   Bell,
+  FlaskConical,
+  Server,
 } from "lucide-react";
 import { detectTraceAnomalies } from "@/lib/anomaly-detector";
 
@@ -59,6 +61,8 @@ interface TraceHeaderProps {
   onOpenOptimizer: () => void;
   onOpenStudio: () => void;
   onOpenEvals?: () => void;
+  onOpenRegressionSuite?: () => void;
+  onOpenMcp?: () => void;
   onOpenKeys?: () => void;
   onOpenWaterfall?: () => void;
   onOpenSwarmTopology?: () => void;
@@ -87,6 +91,8 @@ export function TraceHeader({
   onOpenOptimizer,
   onOpenStudio,
   onOpenEvals,
+  onOpenRegressionSuite,
+  onOpenMcp,
   onOpenKeys,
   onOpenWaterfall,
   onOpenSwarmTopology,
@@ -482,6 +488,16 @@ ${n.content}`
           <span className="hidden lg:inline">Judge Evals</span>
         </button>
 
+        {/* Ghost-to-Test Regression Suite Button */}
+        <button
+          onClick={onOpenRegressionSuite}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-950/70 hover:bg-purple-900/80 text-purple-300 border border-purple-600/60 text-xs font-semibold transition-all shadow-[0_0_12px_rgba(168,85,247,0.25)]"
+          title="Ghost-to-Test Continuous Regression Suite & Golden Dataset CI/CD"
+        >
+          <FlaskConical className="w-3.5 h-3.5 text-purple-400" />
+          <span className="hidden lg:inline">Regressions</span>
+        </button>
+
         {/* Fleet Stats Button */}
         <button
           onClick={onOpenFleet}
@@ -500,6 +516,16 @@ ${n.content}`
         >
           <Terminal className="w-3.5 h-3.5 text-purple-400" />
           <span className="hidden lg:inline">SDK</span>
+        </button>
+
+        {/* MCP Protocol Control Plane Button */}
+        <button
+          onClick={onOpenMcp}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-cyan-300 border border-slate-700 text-xs font-medium transition-colors"
+          title="Model Context Protocol (MCP) Server Registry & Tools"
+        >
+          <Server className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="hidden lg:inline">MCP Hub</span>
         </button>
 
         {/* API Keys Button */}

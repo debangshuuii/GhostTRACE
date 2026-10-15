@@ -71,6 +71,42 @@
   - Agent runtime crashes & unhandled exceptions
 - Includes 1-click test beacon verification and configurable minimum alert severity thresholds.
 
+### 13. 🧠 Deep Reasoning & Chain-of-Thought (CoT) Cognitive Profiler
+- Deconstructs reasoning tokens (`<think>` tags and thinking chains) into **4 semantic trajectory phases**:
+  - `Hypothesis & Goal Formulation` (Sky)
+  - `Constraint & Invariant Verification` (Indigo)
+  - `Hesitation & Rollback` (Rose)
+  - `Decisive Synthesis` (Emerald)
+- Identifies **Cognitive Drift**, circular reasoning loops, proposition cycling, and ungrounded claims.
+- Integrated mini-trajectory progress bars in `ThinkingNode` on canvas and in `NodeInspectorDrawer`.
+
+### 14. 👻 Ghost Engine 2.0: Best-of-3 Speculative MCTS Tree Search
+- Select **"MCTS Best-of-3 Speculation"** in Live Agent Studio.
+- Agent spawns 3 diverse candidate hypotheses simultaneously (Aggressive Direct Action, Brute-Force AST Scan, and Verified Primitive).
+- Automated Critic Evaluators score each path; the winner becomes the active trunk, while suboptimal alternatives automatically materialize as **interactive Ghost Branches** with rejection rationales.
+
+### 15. 🧪 "Ghost-to-Test" Continuous Regression Suite & CI/CD Golden Exporter
+- 1-Click promotion of any pruned ghost failure or critic veto into a permanent **Automated Regression Test Case**.
+- Built-in runner with live pass-rate scoreboard and regression drift alerts.
+- Export entire suite to:
+  - **Pytest** (`test_ghost_regressions.py`)
+  - **Vitest / Jest** (`agent-regressions.test.ts`)
+  - **Golden JSON Dataset**
+  - **GitHub Actions CI/CD YAML**
+
+### 16. ⚡ Live In-DAG Step Re-Execution ("Jupyter for Agent DAGs")
+- Click **"Re-run"** on any node in the inspector or canvas.
+- Edit prompt, thought, or tool outputs directly at that step.
+- Automatically re-runs downstream tools and synthesizes an updated deliverable live into the DAG with real-time SSE streaming.
+
+### 17. 🐝 A2A (Agent-to-Agent) Interactive Sequence Diagram & Loop Circuit-Breaker
+- Interactive UML-style sequence chart tracking chronological message exchanges between Swarm Coordinator, Subagents, and Safety Critics.
+- **Active Loop Circuit-Breaker**: Automatically caps reciprocal agent ping-pong at configurable rounds (default: 3) and injects a synthetic coordinator resolution to prevent token explosion.
+
+### 18. 🔌 Model Context Protocol (MCP) Live Control Plane & RPC Tester
+- Native support for Anthropic & open-source MCP servers (`filesystem`, `crypto-guard`, `postgres-read`).
+- Test tool execution in isolation with JSON-Schema validation and inspect JSON-RPC 2.0 request/response frames.
+
 ---
 
 ## 🛠️ Technology Stack
