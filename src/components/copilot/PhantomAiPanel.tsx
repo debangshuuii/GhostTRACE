@@ -2,7 +2,11 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { TraceRunData, TraceNodeData } from "@/lib/types";
-import { PhantomMessage, generatePhantomResponse } from "@/lib/phantom-ai-engine";
+import {
+  PhantomMessage,
+  generatePhantomResponse,
+  generateProjectWelcomeAndQuestions,
+} from "@/lib/phantom-ai-engine";
 import {
   Ghost,
   Sparkles,
@@ -22,6 +26,7 @@ import {
   ShieldAlert,
   ArrowRight,
   Terminal,
+  RotateCw,
 } from "lucide-react";
 
 interface PhantomAiPanelProps {
@@ -41,27 +46,9 @@ export function PhantomAiPanel({
   onClose,
   onSelectNodeById,
 }: PhantomAiPanelProps) {
-  const [messages, setMessages] = useState<PhantomMessage[]>([
-    {
-      id: "welcome-msg",
-      role: "assistant",
-      timestamp: "Just now",
-      content: `### 🔮 Welcome to PhantomAI!
-I am your **autonomous trace whisperer and solution assistant**. 
-
-You can ask me **any question without limitations** — from debugging why a ghost branch was pruned to getting direct, simple code solutions for your AI agents, prompts, and APIs.
-
-**Quick things you can ask:**
-- *"Why did the critic veto the speculative branch?"*
-- *"Give me a simple code fix for this timing leak."*
-- *"How can I optimize this agent's latency and token cost?"*
-- *"Write an automated unit test for this step."*`,
-      suggestedActions: [
-        "Why was the ghost branch pruned?",
-        "Give me a simple code fix",
-        "How to optimize token usage?",
-      ],
-    },
+  // Initialize with project analysis and 5 questions
+  const [messages, setMessages] = useState<PhantomMessage[]>(() => [
+    generateProjectWelcomeAndQuestions(trace),
   ]);
 
   const [inputQuery, setInputQuery] = useState("");
@@ -70,6 +57,13 @@ You can ask me **any question without limitations** — from debugging why a gho
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Automatically refresh AI chatbox whenever a new project or trace is opened
+  useEffect(() => {
+    const welcome = generateProjectWelcomeAndQuestions(trace);
+    setMessages([welcome]);
+    setInputQuery("");
+  }, [trace?.id]);
 
   // Auto-scroll to bottom of conversation
   useEffect(() => {
@@ -194,6 +188,17 @@ You can ask me **any question without limitations** — from debugging why a gho
             {isWide ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
           <button
+            onClick={() => {
+              const welcome = generateProjectWelcomeAndQuestions(trace);
+              setMessages([welcome]);
+              setInputQuery("");
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+            title="Refresh & Re-scan Active Project"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+          </button>
+          <button
             onClick={handleClearHistory}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
             title="Clear Chat History"
@@ -309,6 +314,37 @@ You can ask me **any question without limitations** — from debugging why a gho
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {/* 5 Smart Questions Tailored for This Project */}
+              {msg.suggestedQuestions && msg.suggestedQuestions.length > 0 && (
+                <div className="mt-3.5 space-y-2 pt-3 border-t border-purple-900/40">
+                  <div className="text-[10px] uppercase font-mono tracking-wider text-purple-300 font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>5 Questions Tailored for This Project:</span>
+                    </span>
+                    <span className="text-[9px] text-cyan-400/80 font-mono">Click to Ask</span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {msg.suggestedQuestions.map((question, qIdx) => (
+                      <button
+                        key={qIdx}
+                        onClick={() => handleSendMessage(question)}
+                        className="w-full text-left p-2.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/60 border border-purple-800/60 hover:border-cyan-400 text-purple-200 hover:text-white transition-all flex items-start justify-between gap-2.5 group shadow-sm"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="w-4 h-4 rounded-full bg-purple-900 border border-purple-700 text-purple-300 font-mono text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-cyan-950 group-hover:border-cyan-400 group-hover:text-cyan-300 transition-colors">
+                            {qIdx + 1}
+                          </span>
+                          <span className="text-[11px] leading-relaxed font-sans">{question}</span>
+                        </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-purple-400 group-hover:text-cyan-300 group-hover:translate-x-0.5 transition-all shrink-0 mt-0.5" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
