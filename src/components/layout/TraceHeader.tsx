@@ -71,6 +71,8 @@ interface TraceHeaderProps {
   onOpenBreakpointIntervention?: () => void;
   onOpenAnomalyModal?: () => void;
   onOpenAlerts?: () => void;
+  isPhantomAiOpen?: boolean;
+  onTogglePhantomAi?: () => void;
   onReloadSeed: () => void;
   isSeeding?: boolean;
   isLiveConnected?: boolean;
@@ -102,6 +104,8 @@ export function TraceHeader({
   onOpenBreakpointIntervention,
   onOpenAnomalyModal,
   onOpenAlerts,
+  isPhantomAiOpen = false,
+  onTogglePhantomAi,
   onReloadSeed,
   isSeeding = false,
   isLiveConnected = false,
@@ -431,6 +435,21 @@ ${n.content}`
 
       {/* Right Action Tools Bar */}
       <div className="flex items-center gap-1.5">
+        {/* PhantomAI Interactive Copilot Button */}
+        <button
+          onClick={onTogglePhantomAi}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+            isPhantomAiOpen
+              ? "bg-purple-950/90 text-purple-200 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.4)] ring-1 ring-purple-400"
+              : "bg-slate-900/90 hover:bg-slate-800 text-purple-300 border-purple-800/60"
+          }`}
+          title="Toggle PhantomAI Interactive Copilot & Solution Engine"
+        >
+          <Ghost className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+          <span>PhantomAI</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+        </button>
+
         {/* Live Studio Run Button */}
         <button
           onClick={onOpenStudio}

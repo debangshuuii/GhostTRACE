@@ -27,6 +27,7 @@ import { RegressionSuiteModal } from "@/components/modals/RegressionSuiteModal";
 import { StepReExecuteModal } from "@/components/modals/StepReExecuteModal";
 import { McpControlPlaneModal } from "@/components/modals/McpControlPlaneModal";
 import { RedGhostModal } from "@/components/modals/RedGhostModal";
+import { PhantomAiPanel } from "@/components/copilot/PhantomAiPanel";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
 
@@ -43,6 +44,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
+
+  // PhantomAI Copilot State
+  const [phantomAiOpen, setPhantomAiOpen] = useState(false);
 
   // Modals state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -360,6 +364,8 @@ export default function Home() {
         onOpenBreakpointIntervention={handleOpenBreakpointIntervention}
         onOpenAnomalyModal={() => setAnomalyModalOpen(true)}
         onOpenAlerts={() => setAlertsModalOpen(true)}
+        isPhantomAiOpen={phantomAiOpen}
+        onTogglePhantomAi={() => setPhantomAiOpen(!phantomAiOpen)}
         onReloadSeed={handleReloadSeed}
         isSeeding={isSeeding}
         isLiveConnected={isLiveConnected}
@@ -417,6 +423,19 @@ export default function Home() {
             </div>
           )}
 
+          {/* Floating PhantomAI Quick-Open Button when closed */}
+          {!phantomAiOpen && (
+            <button
+              onClick={() => setPhantomAiOpen(true)}
+              className="absolute bottom-6 right-6 z-20 flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#080d1a]/95 hover:bg-purple-950/90 border border-purple-500/60 text-purple-200 text-xs font-semibold shadow-[0_0_20px_rgba(168,85,247,0.35)] backdrop-blur-md transition-all hover:scale-105"
+              title="Open PhantomAI Interactive Copilot & Solution Assistant"
+            >
+              <Ghost className="w-4 h-4 text-purple-400 animate-pulse" />
+              <span>Ask PhantomAI</span>
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            </button>
+          )}
+
           {/* Node Inspector Drawer */}
           <NodeInspectorDrawer
             node={selectedNode}
@@ -427,6 +446,15 @@ export default function Home() {
             onOpenRedGhost={() => setRedGhostModalOpen(true)}
           />
         </main>
+
+        {/* PhantomAI Side-by-Side Interactive Copilot Split View */}
+        <PhantomAiPanel
+          trace={selectedTrace}
+          selectedNode={selectedNode}
+          onClearSelectedNode={() => setSelectedNode(null)}
+          isOpen={phantomAiOpen}
+          onClose={() => setPhantomAiOpen(false)}
+        />
       </div>
 
       {/* Analytics Drawer (Recharts) */}
