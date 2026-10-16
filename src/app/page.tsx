@@ -27,6 +27,7 @@ import { RegressionSuiteModal } from "@/components/modals/RegressionSuiteModal";
 import { StepReExecuteModal } from "@/components/modals/StepReExecuteModal";
 import { McpControlPlaneModal } from "@/components/modals/McpControlPlaneModal";
 import { RedGhostModal } from "@/components/modals/RedGhostModal";
+import { MissionControlModal } from "@/components/modals/MissionControlModal";
 import { PhantomAiPanel } from "@/components/copilot/PhantomAiPanel";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
@@ -70,6 +71,7 @@ export default function Home() {
   const [regressionModalOpen, setRegressionModalOpen] = useState(false);
   const [reExecuteModalOpen, setReExecuteModalOpen] = useState(false);
   const [mcpModalOpen, setMcpModalOpen] = useState(false);
+  const [missionControlOpen, setMissionControlOpen] = useState(false);
   const [nodeToReExecute, setNodeToReExecute] = useState<TraceNodeData | null>(null);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
@@ -335,6 +337,18 @@ export default function Home() {
     }
   };
 
+  // Global hotkey to toggle Mission Control SOC Wall (Ctrl+M or Cmd+M)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        setMissionControlOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#070b12] text-slate-100 font-sans">
       {/* Top Header */}
@@ -364,6 +378,7 @@ export default function Home() {
         onOpenBreakpointIntervention={handleOpenBreakpointIntervention}
         onOpenAnomalyModal={() => setAnomalyModalOpen(true)}
         onOpenAlerts={() => setAlertsModalOpen(true)}
+        onOpenMissionControl={() => setMissionControlOpen(true)}
         isPhantomAiOpen={phantomAiOpen}
         onTogglePhantomAi={() => setPhantomAiOpen(!phantomAiOpen)}
         onReloadSeed={handleReloadSeed}
@@ -636,6 +651,16 @@ export default function Home() {
         isOpen={redGhostModalOpen}
         onClose={() => setRedGhostModalOpen(false)}
         trace={selectedTrace}
+      />
+
+      {/* Mission Control NASA/Twitch-Style SOC Telemetry Wall Modal */}
+      <MissionControlModal
+        isOpen={missionControlOpen}
+        onClose={() => setMissionControlOpen(false)}
+        traces={traces}
+        selectedTrace={selectedTrace}
+        onSelectTrace={handleSelectTrace}
+        onSelectNode={(node) => setSelectedNode(node)}
       />
     </div>
   );

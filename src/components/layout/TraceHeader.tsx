@@ -35,6 +35,8 @@ import {
   FlaskConical,
   Server,
   ShieldAlert,
+  Radio,
+  Crosshair,
 } from "lucide-react";
 import { detectTraceAnomalies } from "@/lib/anomaly-detector";
 
@@ -71,6 +73,7 @@ interface TraceHeaderProps {
   onOpenBreakpointIntervention?: () => void;
   onOpenAnomalyModal?: () => void;
   onOpenAlerts?: () => void;
+  onOpenMissionControl?: () => void;
   isPhantomAiOpen?: boolean;
   onTogglePhantomAi?: () => void;
   onReloadSeed: () => void;
@@ -104,6 +107,7 @@ export function TraceHeader({
   onOpenBreakpointIntervention,
   onOpenAnomalyModal,
   onOpenAlerts,
+  onOpenMissionControl,
   isPhantomAiOpen = false,
   onTogglePhantomAi,
   onReloadSeed,
@@ -435,6 +439,17 @@ ${n.content}`
 
       {/* Right Action Tools Bar */}
       <div className="flex items-center gap-1.5">
+        {/* Mission Control SOC Wall Button */}
+        <button
+          onClick={onOpenMissionControl}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-950/90 hover:bg-cyan-900/90 text-cyan-200 border border-cyan-500/80 text-xs font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40"
+          title="Open Full-Screen NASA/Twitch-Style Mission Control SOC Telemetry Wall"
+        >
+          <Crosshair className="w-3.5 h-3.5 text-cyan-400 animate-spin" style={{ animationDuration: "10s" }} />
+          <span>SOC Wall</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        </button>
+
         {/* PhantomAI Interactive Copilot Button */}
         <button
           onClick={onTogglePhantomAi}
