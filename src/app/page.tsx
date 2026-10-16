@@ -32,6 +32,7 @@ import { StorageAdapterModal } from "@/components/modals/StorageAdapterModal";
 import { AuthRbacModal } from "@/components/modals/AuthRbacModal";
 import { CommandPaletteModal } from "@/components/modals/CommandPaletteModal";
 import { PromptCacheOptimizerModal } from "@/components/modals/PromptCacheOptimizerModal";
+import { EmbeddingGalaxyModal } from "@/components/modals/EmbeddingGalaxyModal";
 import { PhantomAiPanel } from "@/components/copilot/PhantomAiPanel";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
@@ -80,6 +81,7 @@ export default function Home() {
   const [authRbacOpen, setAuthRbacOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [cacheOptimizerOpen, setCacheOptimizerOpen] = useState(false);
+  const [galaxyModalOpen, setGalaxyModalOpen] = useState(false);
   const [nodeToReExecute, setNodeToReExecute] = useState<TraceNodeData | null>(null);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
@@ -395,6 +397,7 @@ export default function Home() {
         onOpenAuthRbac={() => setAuthRbacOpen(true)}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onOpenCacheOptimizer={() => setCacheOptimizerOpen(true)}
+        onOpenGalaxy={() => setGalaxyModalOpen(true)}
         isPhantomAiOpen={phantomAiOpen}
         onTogglePhantomAi={() => setPhantomAiOpen(!phantomAiOpen)}
         onReloadSeed={handleReloadSeed}
@@ -707,6 +710,7 @@ export default function Home() {
           openStorage: () => setStorageModalOpen(true),
           openAuthRbac: () => setAuthRbacOpen(true),
           openCacheOptimizer: () => setCacheOptimizerOpen(true),
+          openGalaxy: () => setGalaxyModalOpen(true),
           openDpo: () => setDpoModalOpen(true),
           openEvals: () => setEvalsModalOpen(true),
           openRegressionSuite: () => setRegressionModalOpen(true),
@@ -736,6 +740,15 @@ export default function Home() {
         isOpen={cacheOptimizerOpen}
         onClose={() => setCacheOptimizerOpen(false)}
         trace={selectedTrace}
+      />
+
+      {/* High-Dimensional Semantic Embedding Galaxy (t-SNE / PCA) Modal */}
+      <EmbeddingGalaxyModal
+        isOpen={galaxyModalOpen}
+        onClose={() => setGalaxyModalOpen(false)}
+        traces={traces}
+        onSelectTrace={handleSelectTrace}
+        onSelectNode={(node) => setSelectedNode(node)}
       />
     </div>
   );

@@ -38,6 +38,7 @@ import {
   Radio,
   Crosshair,
   Coins,
+  Orbit,
 } from "lucide-react";
 import { detectTraceAnomalies } from "@/lib/anomaly-detector";
 
@@ -79,6 +80,7 @@ interface TraceHeaderProps {
   onOpenAuthRbac?: () => void;
   onOpenCommandPalette?: () => void;
   onOpenCacheOptimizer?: () => void;
+  onOpenGalaxy?: () => void;
   isPhantomAiOpen?: boolean;
   onTogglePhantomAi?: () => void;
   onReloadSeed: () => void;
@@ -117,6 +119,7 @@ export function TraceHeader({
   onOpenAuthRbac,
   onOpenCommandPalette,
   onOpenCacheOptimizer,
+  onOpenGalaxy,
   isPhantomAiOpen = false,
   onTogglePhantomAi,
   onReloadSeed,
@@ -509,6 +512,16 @@ ${n.content}`
           <span className="px-1.5 py-0.2 rounded bg-emerald-900/90 text-emerald-200 text-[10px] font-mono font-bold">
             -90%
           </span>
+        </button>
+
+        {/* Semantic Embedding Galaxy Button */}
+        <button
+          onClick={onOpenGalaxy}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-950/80 hover:bg-purple-900/80 text-purple-300 border border-purple-500/70 text-xs font-semibold transition-all shadow-[0_0_12px_rgba(168,85,247,0.3)] ring-1 ring-purple-500/30"
+          title="Open High-Dimensional Semantic Embedding Galaxy (t-SNE / PCA Error Clustering)"
+        >
+          <Orbit className="w-3.5 h-3.5 text-purple-400" />
+          <span className="hidden xl:inline">Galaxy</span>
         </button>
 
         {/* AI Prompt Optimizer Advisor */}

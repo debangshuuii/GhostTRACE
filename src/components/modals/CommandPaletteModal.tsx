@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   Coins,
+  Orbit,
 } from "lucide-react";
 
 export interface CommandItem {
@@ -60,6 +61,7 @@ interface CommandPaletteModalProps {
     openStorage: () => void;
     openAuthRbac: () => void;
     openCacheOptimizer: () => void;
+    openGalaxy: () => void;
     openDpo: () => void;
     openEvals: () => void;
     openRegressionSuite: () => void;
@@ -173,6 +175,17 @@ export function CommandPaletteModal({
         icon: <Coins className="w-4 h-4 text-emerald-400" />,
         onSelect: () => actions.openCacheOptimizer(),
         keywords: ["cache", "caching", "cost", "tokens", "budget", "anthropic", "ephemeral", "savings", "slasher"],
+      },
+      {
+        id: "cmd-embedding-galaxy",
+        category: "action",
+        title: "Launch Semantic Embedding Galaxy (t-SNE / PCA)",
+        subtitle: "High-dimensional visual error clustering across agent thoughts and pruned ghost branches",
+        badge: "GALAXY",
+        badgeColor: "bg-purple-950 text-purple-300 border-purple-700",
+        icon: <Orbit className="w-4 h-4 text-purple-400" />,
+        onSelect: () => actions.openGalaxy(),
+        keywords: ["galaxy", "embedding", "tsne", "pca", "umap", "cluster", "vector", "atlas", "stars"],
       },
       {
         id: "cmd-dpo-export",
