@@ -131,6 +131,13 @@
   - `VIEWER`: Read-only audit access to execution trees, time-travel playback, and telemetry charts.
 - **Team Workspace Management**: Invite members via email, update roles in real time, and inspect authorization logs.
 
+### 22. ⚡ Spotlight Command Palette (`Ctrl+K` / `⌘K`) & Omni-Search
+- **Raycast & Linear-Style Command Center**: Press `Ctrl+K` or `⌘K` from anywhere in the application to summon the central HUD with tactile cyber audio feedback.
+- **Unified Omni-Search**: Instant fuzzy search across system actions, loaded traces, step contents, tool calls, and pruned ghost hypotheses.
+- **Category Filter Tabs**: Quick filter pills for `ALL`, `ACTIONS`, `TRACES`, `STEPS`, and `GHOSTS`.
+- **Full Keyboard Navigation**: Seamless `↑`/`↓` cycling, `Enter` selection with audio chime, and `Esc` dismissal.
+- **Direct Deep-Linking**: Jump directly into individual execution steps or counterfactual ghost branches on the canvas with 1 keystroke.
+
 ---
 
 ## 🛠️ Technology Stack

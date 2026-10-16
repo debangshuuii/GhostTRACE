@@ -76,6 +76,7 @@ interface TraceHeaderProps {
   onOpenMissionControl?: () => void;
   onOpenStorageAdapter?: () => void;
   onOpenAuthRbac?: () => void;
+  onOpenCommandPalette?: () => void;
   isPhantomAiOpen?: boolean;
   onTogglePhantomAi?: () => void;
   onReloadSeed: () => void;
@@ -112,6 +113,7 @@ export function TraceHeader({
   onOpenMissionControl,
   onOpenStorageAdapter,
   onOpenAuthRbac,
+  onOpenCommandPalette,
   isPhantomAiOpen = false,
   onTogglePhantomAi,
   onReloadSeed,
@@ -396,6 +398,20 @@ ${n.content}`
             </div>
           )}
         </div>
+
+        {/* Spotlight Command Palette Omni-Search Trigger */}
+        <button
+          onClick={onOpenCommandPalette}
+          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800/90 border border-slate-700/80 hover:border-cyan-500/50 text-xs font-medium text-slate-300 hover:text-white transition-all shadow-sm group"
+          title="Open Spotlight Command Palette (Ctrl+K / ⌘K)"
+        >
+          <Search className="w-3.5 h-3.5 text-cyan-400 group-hover:text-cyan-300 transition-colors" />
+          <span className="hidden md:inline text-slate-400 group-hover:text-slate-200">Search traces & commands...</span>
+          <span className="md:hidden text-slate-400">Search</span>
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300/80 border border-slate-700 text-[10px] font-mono">
+            ⌘K
+          </kbd>
+        </button>
       </div>
 
       {/* Center Live KPI Chips & Breakpoint Status */}

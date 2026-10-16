@@ -30,6 +30,7 @@ import { RedGhostModal } from "@/components/modals/RedGhostModal";
 import { MissionControlModal } from "@/components/modals/MissionControlModal";
 import { StorageAdapterModal } from "@/components/modals/StorageAdapterModal";
 import { AuthRbacModal } from "@/components/modals/AuthRbacModal";
+import { CommandPaletteModal } from "@/components/modals/CommandPaletteModal";
 import { PhantomAiPanel } from "@/components/copilot/PhantomAiPanel";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
@@ -76,6 +77,7 @@ export default function Home() {
   const [missionControlOpen, setMissionControlOpen] = useState(false);
   const [storageModalOpen, setStorageModalOpen] = useState(false);
   const [authRbacOpen, setAuthRbacOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [nodeToReExecute, setNodeToReExecute] = useState<TraceNodeData | null>(null);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
@@ -341,12 +343,16 @@ export default function Home() {
     }
   };
 
-  // Global hotkey to toggle Mission Control SOC Wall (Ctrl+M or Cmd+M)
+  // Global hotkeys: Ctrl+M / Cmd+M for Mission Control SOC Wall, Ctrl+K / Cmd+K for Command Palette
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "m") {
         e.preventDefault();
         setMissionControlOpen((prev) => !prev);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCommandPaletteOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -385,6 +391,7 @@ export default function Home() {
         onOpenMissionControl={() => setMissionControlOpen(true)}
         onOpenStorageAdapter={() => setStorageModalOpen(true)}
         onOpenAuthRbac={() => setAuthRbacOpen(true)}
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         isPhantomAiOpen={phantomAiOpen}
         onTogglePhantomAi={() => setPhantomAiOpen(!phantomAiOpen)}
         onReloadSeed={handleReloadSeed}
@@ -680,6 +687,44 @@ export default function Home() {
         isOpen={authRbacOpen}
         onClose={() => setAuthRbacOpen(false)}
         workspaceId={selectedWorkspaceId}
+      />
+
+      {/* Spotlight Command Palette (Ctrl+K / ⌘K) & Omni-Search */}
+      <CommandPaletteModal
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        traces={traces}
+        selectedTrace={selectedTrace}
+        onSelectTrace={handleSelectTrace}
+        onSelectNode={(node) => setSelectedNode(node)}
+        actions={{
+          openMissionControl: () => setMissionControlOpen(true),
+          openRedGhost: () => setRedGhostModalOpen(true),
+          openStudio: () => setStudioModalOpen(true),
+          openStorage: () => setStorageModalOpen(true),
+          openAuthRbac: () => setAuthRbacOpen(true),
+          openDpo: () => setDpoModalOpen(true),
+          openEvals: () => setEvalsModalOpen(true),
+          openRegressionSuite: () => setRegressionModalOpen(true),
+          openMcp: () => setMcpModalOpen(true),
+          openWaterfall: () => setWaterfallDrawerOpen(true),
+          openSwarm: () => setSwarmModalOpen(true),
+          openKeys: () => setKeysModalOpen(true),
+          openAlerts: () => setAlertsModalOpen(true),
+          openGuardrails: () => setGuardrailsModalOpen(true),
+          openAnalytics: () => setAnalyticsDrawerOpen(true),
+          cycleTheme: () => {
+            const isDark = document.body.classList.contains("theme-obsidian");
+            const isPaper = document.body.classList.contains("theme-paper");
+            document.body.classList.remove("theme-obsidian", "theme-paper");
+            if (!isDark && !isPaper) {
+              document.body.classList.add("theme-obsidian");
+            } else if (isDark) {
+              document.body.classList.add("theme-paper");
+            }
+          },
+          reloadSeed: handleReloadSeed,
+        }}
       />
     </div>
   );
