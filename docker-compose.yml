@@ -12,6 +12,10 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:./dev.db
+      - STORAGE_ENGINE=prisma # Options: prisma | clickhouse | timescaledb | dual
+      - CLICKHOUSE_HOST=http://clickhouse:8123
+      - CLICKHOUSE_DATABASE=ghosttrace
+      - TIMESCALEDB_URL=postgres://postgres:password@timescaledb:5432/ghosttrace
       - PORT=3000
     volumes:
       - ghosttrace-data:/app/prisma
@@ -22,6 +26,41 @@ services:
       retries: 3
       start_period: 15s
 
+  # Optional ClickHouse High-Throughput Columnar Fleet Engine
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: ghosttrace-clickhouse
+    profiles: ["clickhouse", "fleet"]
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      - CLICKHOUSE_DB=ghosttrace
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    restart: unless-stopped
+
+  # Optional TimescaleDB PostgreSQL Time-Series Hypertable Engine
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: ghosttrace-timescaledb
+    profiles: ["timescaledb", "fleet"]
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=ghosttrace
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
 volumes:
   ghosttrace-data:
+    driver: local
+  clickhouse-data:
+    driver: local
+  timescaledb-data:
     driver: local

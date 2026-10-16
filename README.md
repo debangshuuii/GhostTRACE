@@ -115,6 +115,13 @@
 - **High-Speed Live Terminal Stream**: Chronological millisecond telemetry feed with severity filtering and audio feedback.
 - **Tactile Sci-Fi Audio FX**: Integrated procedural Web Audio API synthesizers for radar sweeps, keystrokes, and emergency alarms.
 
+### 20. ⚡ ClickHouse & TimescaleDB High-Velocity Columnar Adapters
+- **ClickHouse Columnar Engine (`MergeTree`)**: Ingest 100M+ spans/day with sub-3ms P95 vector latency calculations and monthly partitioning.
+- **TimescaleDB PostgreSQL Hypertables**: Automated chunking, 7-day compression rollups, and continuous aggregate `time_bucket` queries.
+- **Unified Storage Orchestrator & Dual-Write Pipeline**: Concurrently write metadata to SQLite/Postgres while streaming high-velocity spans to ClickHouse.
+- **Live Throughput Benchmark Runner**: Test and compare write throughput (spans/sec) directly from the **Cluster** UI.
+- **Docker Profiles**: Launch with `docker compose --profile clickhouse up` or `docker compose --profile timescaledb up`.
+
 ---
 
 ## 🛠️ Technology Stack

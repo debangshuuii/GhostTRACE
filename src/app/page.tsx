@@ -28,6 +28,7 @@ import { StepReExecuteModal } from "@/components/modals/StepReExecuteModal";
 import { McpControlPlaneModal } from "@/components/modals/McpControlPlaneModal";
 import { RedGhostModal } from "@/components/modals/RedGhostModal";
 import { MissionControlModal } from "@/components/modals/MissionControlModal";
+import { StorageAdapterModal } from "@/components/modals/StorageAdapterModal";
 import { PhantomAiPanel } from "@/components/copilot/PhantomAiPanel";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
@@ -72,6 +73,7 @@ export default function Home() {
   const [reExecuteModalOpen, setReExecuteModalOpen] = useState(false);
   const [mcpModalOpen, setMcpModalOpen] = useState(false);
   const [missionControlOpen, setMissionControlOpen] = useState(false);
+  const [storageModalOpen, setStorageModalOpen] = useState(false);
   const [nodeToReExecute, setNodeToReExecute] = useState<TraceNodeData | null>(null);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
@@ -379,6 +381,7 @@ export default function Home() {
         onOpenAnomalyModal={() => setAnomalyModalOpen(true)}
         onOpenAlerts={() => setAlertsModalOpen(true)}
         onOpenMissionControl={() => setMissionControlOpen(true)}
+        onOpenStorageAdapter={() => setStorageModalOpen(true)}
         isPhantomAiOpen={phantomAiOpen}
         onTogglePhantomAi={() => setPhantomAiOpen(!phantomAiOpen)}
         onReloadSeed={handleReloadSeed}
@@ -661,6 +664,12 @@ export default function Home() {
         selectedTrace={selectedTrace}
         onSelectTrace={handleSelectTrace}
         onSelectNode={(node) => setSelectedNode(node)}
+      />
+
+      {/* Enterprise Storage Adapters (ClickHouse & TimescaleDB) Modal */}
+      <StorageAdapterModal
+        isOpen={storageModalOpen}
+        onClose={() => setStorageModalOpen(false)}
       />
     </div>
   );

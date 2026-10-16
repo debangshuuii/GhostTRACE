@@ -38,6 +38,8 @@ export interface TraceNodeData {
   interventionInput?: string | null;
   interventionVerdict?: string | null;
   isPaused?: boolean;
+  traceRunId?: string;
+  createdAt?: string | Date;
 }
 
 export interface TraceEdgeData {

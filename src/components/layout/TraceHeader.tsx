@@ -74,6 +74,7 @@ interface TraceHeaderProps {
   onOpenAnomalyModal?: () => void;
   onOpenAlerts?: () => void;
   onOpenMissionControl?: () => void;
+  onOpenStorageAdapter?: () => void;
   isPhantomAiOpen?: boolean;
   onTogglePhantomAi?: () => void;
   onReloadSeed: () => void;
@@ -108,6 +109,7 @@ export function TraceHeader({
   onOpenAnomalyModal,
   onOpenAlerts,
   onOpenMissionControl,
+  onOpenStorageAdapter,
   isPhantomAiOpen = false,
   onTogglePhantomAi,
   onReloadSeed,
@@ -573,6 +575,16 @@ ${n.content}`
         >
           <Server className="w-3.5 h-3.5 text-cyan-400" />
           <span className="hidden lg:inline">MCP Hub</span>
+        </button>
+
+        {/* Storage Engines / ClickHouse & TimescaleDB Cluster Button */}
+        <button
+          onClick={onOpenStorageAdapter}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-950/70 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-700/60 text-xs font-semibold transition-all shadow-[0_0_10px_rgba(6,182,212,0.25)]"
+          title="ClickHouse & TimescaleDB Columnar Storage Cluster Adapters"
+        >
+          <Database className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="hidden xl:inline">Cluster</span>
         </button>
 
         {/* API Keys Button */}
