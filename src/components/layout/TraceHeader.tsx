@@ -37,6 +37,7 @@ import {
   ShieldAlert,
   Radio,
   Crosshair,
+  Coins,
 } from "lucide-react";
 import { detectTraceAnomalies } from "@/lib/anomaly-detector";
 
@@ -77,6 +78,7 @@ interface TraceHeaderProps {
   onOpenStorageAdapter?: () => void;
   onOpenAuthRbac?: () => void;
   onOpenCommandPalette?: () => void;
+  onOpenCacheOptimizer?: () => void;
   isPhantomAiOpen?: boolean;
   onTogglePhantomAi?: () => void;
   onReloadSeed: () => void;
@@ -114,6 +116,7 @@ export function TraceHeader({
   onOpenStorageAdapter,
   onOpenAuthRbac,
   onOpenCommandPalette,
+  onOpenCacheOptimizer,
   isPhantomAiOpen = false,
   onTogglePhantomAi,
   onReloadSeed,
@@ -493,6 +496,19 @@ ${n.content}`
         >
           <Play className="w-3.5 h-3.5 fill-current" />
           <span>Live Studio</span>
+        </button>
+
+        {/* Prompt Caching & Token Cost Slasher */}
+        <button
+          onClick={onOpenCacheOptimizer}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-600/70 text-xs font-semibold transition-all shadow-[0_0_12px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30"
+          title="Open Prompt Caching & Token Cost Slasher (Save up to 90% on Input Tokens)"
+        >
+          <Coins className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="hidden xl:inline">Cost Slasher</span>
+          <span className="px-1.5 py-0.2 rounded bg-emerald-900/90 text-emerald-200 text-[10px] font-mono font-bold">
+            -90%
+          </span>
         </button>
 
         {/* AI Prompt Optimizer Advisor */}

@@ -31,6 +31,7 @@ import { MissionControlModal } from "@/components/modals/MissionControlModal";
 import { StorageAdapterModal } from "@/components/modals/StorageAdapterModal";
 import { AuthRbacModal } from "@/components/modals/AuthRbacModal";
 import { CommandPaletteModal } from "@/components/modals/CommandPaletteModal";
+import { PromptCacheOptimizerModal } from "@/components/modals/PromptCacheOptimizerModal";
 import { PhantomAiPanel } from "@/components/copilot/PhantomAiPanel";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
@@ -78,6 +79,7 @@ export default function Home() {
   const [storageModalOpen, setStorageModalOpen] = useState(false);
   const [authRbacOpen, setAuthRbacOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [cacheOptimizerOpen, setCacheOptimizerOpen] = useState(false);
   const [nodeToReExecute, setNodeToReExecute] = useState<TraceNodeData | null>(null);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
@@ -392,6 +394,7 @@ export default function Home() {
         onOpenStorageAdapter={() => setStorageModalOpen(true)}
         onOpenAuthRbac={() => setAuthRbacOpen(true)}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        onOpenCacheOptimizer={() => setCacheOptimizerOpen(true)}
         isPhantomAiOpen={phantomAiOpen}
         onTogglePhantomAi={() => setPhantomAiOpen(!phantomAiOpen)}
         onReloadSeed={handleReloadSeed}
@@ -703,6 +706,7 @@ export default function Home() {
           openStudio: () => setStudioModalOpen(true),
           openStorage: () => setStorageModalOpen(true),
           openAuthRbac: () => setAuthRbacOpen(true),
+          openCacheOptimizer: () => setCacheOptimizerOpen(true),
           openDpo: () => setDpoModalOpen(true),
           openEvals: () => setEvalsModalOpen(true),
           openRegressionSuite: () => setRegressionModalOpen(true),
@@ -725,6 +729,13 @@ export default function Home() {
           },
           reloadSeed: handleReloadSeed,
         }}
+      />
+
+      {/* Prompt Caching & Token Cost Slasher Modal */}
+      <PromptCacheOptimizerModal
+        isOpen={cacheOptimizerOpen}
+        onClose={() => setCacheOptimizerOpen(false)}
+        trace={selectedTrace}
       />
     </div>
   );

@@ -138,6 +138,13 @@
 - **Full Keyboard Navigation**: Seamless `↑`/`↓` cycling, `Enter` selection with audio chime, and `Esc` dismissal.
 - **Direct Deep-Linking**: Jump directly into individual execution steps or counterfactual ghost branches on the canvas with 1 keystroke.
 
+### 23. 💰 Prompt Caching & Token Budget Cost Optimizer ("Anthropic & OpenAI Cost Slasher")
+- **Live Dollar ROI Calculator**: Automatically analyzes input/output token prefixes across any trace DAG and computes before/after cost per run and monthly fleet projections.
+- **Provider Pricing Engine**: Built-in support for Anthropic Claude 3.7 Sonnet (90% cache discount), Claude 3.5 Haiku, OpenAI GPT-4o (50% prefix discount), and DeepSeek-R1 (75% discount).
+- **Interactive Breakpoint Blueprint**: Visualizes static system instructions, tool schema declarations, and multi-turn checkpoints (`cache_control: {"type": "ephemeral"}`).
+- **Cache Invalidation Anti-Pattern Audit**: Proactively flags volatile timestamps, randomized nonces, and tool ordering jitter that bust cache hit rates.
+- **1-Click SDK Exporter**: Generates production-ready Python (`anthropic.beta.prompt_caching`) and TypeScript (`@anthropic-ai/sdk`) boilerplate code with 1 click.
+
 ---
 
 ## 🛠️ Technology Stack

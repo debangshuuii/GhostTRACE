@@ -31,6 +31,7 @@ import {
   ChevronRight,
   ShieldCheck,
   AlertTriangle,
+  Coins,
 } from "lucide-react";
 
 export interface CommandItem {
@@ -58,6 +59,7 @@ interface CommandPaletteModalProps {
     openStudio: () => void;
     openStorage: () => void;
     openAuthRbac: () => void;
+    openCacheOptimizer: () => void;
     openDpo: () => void;
     openEvals: () => void;
     openRegressionSuite: () => void;
@@ -160,6 +162,17 @@ export function CommandPaletteModal({
         icon: <ShieldCheck className="w-4 h-4 text-purple-400" />,
         onSelect: () => actions.openAuthRbac(),
         keywords: ["auth", "rbac", "oauth", "github", "google", "members", "team", "roles"],
+      },
+      {
+        id: "cmd-cost-slasher",
+        category: "action",
+        title: "Prompt Caching & Token Cost Slasher",
+        subtitle: "Anthropic Ephemeral & OpenAI Prefix Caching Simulator with Live Fleet ROI Calculator",
+        badge: "-90% TOKENS",
+        badgeColor: "bg-emerald-950 text-emerald-300 border-emerald-700",
+        icon: <Coins className="w-4 h-4 text-emerald-400" />,
+        onSelect: () => actions.openCacheOptimizer(),
+        keywords: ["cache", "caching", "cost", "tokens", "budget", "anthropic", "ephemeral", "savings", "slasher"],
       },
       {
         id: "cmd-dpo-export",
