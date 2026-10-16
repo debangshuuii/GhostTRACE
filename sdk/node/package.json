@@ -1,0 +1,53 @@
+{
+  "name": "ghosttrace",
+  "version": "0.1.0",
+  "description": "Official Node.js & TypeScript SDK & Zero-Code Auto-Instrumentation for GhostTRACE (Autonomous AI Agent & Reasoning Trace Inspector)",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ghosttrace",
+    "observability",
+    "ai",
+    "agents",
+    "llm",
+    "reasoning",
+    "cot",
+    "deepseek-r1",
+    "openai",
+    "claude",
+    "traces",
+    "counterfactual",
+    "dpo"
+  ],
+  "author": "Debangshu Sinha <debangshu@ghosttrace.io>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/debangshuuii/GhostTRACE.git",
+    "directory": "sdk/node"
+  },
+  "bugs": {
+    "url": "https://github.com/debangshuuii/GhostTRACE/issues"
+  },
+  "homepage": "https://github.com/debangshuuii/GhostTRACE#readme",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

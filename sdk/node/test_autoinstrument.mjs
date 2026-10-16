@@ -2,7 +2,7 @@
  * Test script verifying GhostTRACE Zero-Code Node.js Auto-Instrumentation.
  */
 
-import { wrapOpenAI, withTrace } from "./ghosttrace.ts";
+import { wrapOpenAI, withTrace } from "./dist/ghosttrace.js";
 
 class MockOpenAI {
   constructor() {

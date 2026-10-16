@@ -59,9 +59,11 @@ const client = new OpenAI({
 # 3. Environment Variable (Works with CrewAI, AutoGen, LangChain, Cursor, Open WebUI):
 export OPENAI_BASE_URL="http://localhost:3000/v1"`;
 
-  const autoinstrumentSnippet = `# 🐍 ZERO-CODE MONKEYPATCHING (Python & Node.js)
+  const autoinstrumentSnippet = `# 📦 OFFICIAL PUBLIC REGISTRIES:
+# pip install ghosttrace
+# npm install ghosttrace
 
-# Option A: Python 1-Line Monkeypatching (sdk/python/ghosttrace.py)
+# 🐍 Option A: Python 1-Line Auto-Instrumentation (pip install ghosttrace)
 import ghosttrace
 from openai import OpenAI
 
@@ -84,8 +86,8 @@ def audit_database(session, db_config):
     return {"status": "secure"}
 
 # -------------------------------------------------------------
-# Option B: Node.js / TypeScript Client Wrapper (sdk/node/ghosttrace.ts)
-import { wrapOpenAI } from "./sdk/node/ghosttrace";
+# 📦 Option B: Node.js / TypeScript (npm install ghosttrace)
+import { wrapOpenAI } from "ghosttrace";
 import OpenAI from "openai";
 
 const client = wrapOpenAI(new OpenAI());`;

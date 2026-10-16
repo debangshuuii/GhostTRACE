@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghosttrace"
+version = "0.1.0"
+description = "Official Python SDK & Zero-Code Auto-Instrumentation for GhostTRACE (Autonomous AI Agent & Reasoning Trace Inspector)"
+readme = "README.md"
+authors = [
+    { name = "Debangshu Sinha", email = "debangshu@ghosttrace.io" }
+]
+license = { text = "MIT" }
+keywords = [
+    "ghosttrace",
+    "observability",
+    "llm",
+    "agent",
+    "reasoning",
+    "traces",
+    "deepseek-r1",
+    "openai",
+    "anthropic",
+    "cot",
+    "dpo"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Typing :: Typed"
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.optional-dependencies]
+openai = ["openai>=1.0.0"]
+anthropic = ["anthropic>=0.18.0"]
+langchain = ["langchain-core>=0.1.0"]
+all = [
+    "openai>=1.0.0",
+    "anthropic>=0.18.0",
+    "langchain-core>=0.1.0"
+]
+
+[project.urls]
+Homepage = "https://ghosttrace.io"
+Documentation = "https://github.com/debangshuuii/GhostTRACE#readme"
+Repository = "https://github.com/debangshuuii/GhostTRACE"
+"Bug Tracker" = "https://github.com/debangshuuii/GhostTRACE/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ghosttrace*"]
+
+[tool.setuptools.package-data]
+ghosttrace = ["py.typed"]

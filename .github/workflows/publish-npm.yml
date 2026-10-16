@@ -1,0 +1,38 @@
+name: Publish to npm 📦
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    name: Build & Publish Node.js SDK to npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install Dependencies
+        working-directory: sdk/node
+        run: |
+          npm ci || npm install
+
+      - name: Build TypeScript Package
+        working-directory: sdk/node
+        run: |
+          npm run build
+
+      - name: Publish to npm
+        working-directory: sdk/node
+        run: |
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

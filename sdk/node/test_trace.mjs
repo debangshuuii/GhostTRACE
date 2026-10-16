@@ -1,4 +1,4 @@
-import { GhostTraceClient } from "./ghosttrace.ts";
+import { GhostTraceClient } from "./dist/ghosttrace.js";
 
 async function main() {
   console.log("🚀 Initializing GhostTraceClient (Node.js SDK)...");

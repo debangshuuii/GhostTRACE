@@ -28,7 +28,7 @@
 - **Zero-Code TypeScript / Node Wrapper**: `wrapOpenAI(client)` and `withTrace(fn)`.
 - **OpenTelemetry Standard Ingestion**: Ingest spans directly via `/api/ingest/otel` and standard collector alias `/v1/traces`.
 - **LangChain & LangGraph**: Dedicated `/api/ingest/langchain` endpoint for RunTree payloads.
-- **Official Python & Node.js SDKs**: `sdk/python/ghosttrace.py` and `sdk/node/ghosttrace.ts`.
+- **Official PyPI & npm Packages**: Install directly via `pip install ghosttrace` and `npm install ghosttrace`. Includes automated GitHub Actions CI/CD publishing workflows (`.github/workflows/`).
 
 ### 5. 🔑 Multi-Tenant API Key Management with SHA-256 Hashing
 - Issue scoped credentials (`gt_live_...` for production, `gt_test_...` for staging).
