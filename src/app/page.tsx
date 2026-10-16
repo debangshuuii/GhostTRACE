@@ -29,6 +29,7 @@ import { McpControlPlaneModal } from "@/components/modals/McpControlPlaneModal";
 import { RedGhostModal } from "@/components/modals/RedGhostModal";
 import { MissionControlModal } from "@/components/modals/MissionControlModal";
 import { StorageAdapterModal } from "@/components/modals/StorageAdapterModal";
+import { AuthRbacModal } from "@/components/modals/AuthRbacModal";
 import { PhantomAiPanel } from "@/components/copilot/PhantomAiPanel";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
 import { Sparkles, AlertCircle, Ghost } from "lucide-react";
@@ -74,6 +75,7 @@ export default function Home() {
   const [mcpModalOpen, setMcpModalOpen] = useState(false);
   const [missionControlOpen, setMissionControlOpen] = useState(false);
   const [storageModalOpen, setStorageModalOpen] = useState(false);
+  const [authRbacOpen, setAuthRbacOpen] = useState(false);
   const [nodeToReExecute, setNodeToReExecute] = useState<TraceNodeData | null>(null);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
@@ -382,6 +384,7 @@ export default function Home() {
         onOpenAlerts={() => setAlertsModalOpen(true)}
         onOpenMissionControl={() => setMissionControlOpen(true)}
         onOpenStorageAdapter={() => setStorageModalOpen(true)}
+        onOpenAuthRbac={() => setAuthRbacOpen(true)}
         isPhantomAiOpen={phantomAiOpen}
         onTogglePhantomAi={() => setPhantomAiOpen(!phantomAiOpen)}
         onReloadSeed={handleReloadSeed}
@@ -670,6 +673,13 @@ export default function Home() {
       <StorageAdapterModal
         isOpen={storageModalOpen}
         onClose={() => setStorageModalOpen(false)}
+      />
+
+      {/* Hosted Cloud Multi-Tenant Auth & RBAC Modal */}
+      <AuthRbacModal
+        isOpen={authRbacOpen}
+        onClose={() => setAuthRbacOpen(false)}
+        workspaceId={selectedWorkspaceId}
       />
     </div>
   );

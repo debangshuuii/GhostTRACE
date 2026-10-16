@@ -122,6 +122,15 @@
 - **Live Throughput Benchmark Runner**: Test and compare write throughput (spans/sec) directly from the **Cluster** UI.
 - **Docker Profiles**: Launch with `docker compose --profile clickhouse up` or `docker compose --profile timescaledb up`.
 
+### 21. 🔐 Hosted Cloud Multi-Tenant Auth & Role-Based Access Control (RBAC)
+- **OAuth Single Sign-On (GitHub / Google)**: Multi-tenant user identity with verified provider links.
+- **4-Tier Granular RBAC Matrix**:
+  - `OWNER`: Full cloud control, billing, member invites, security governance, and workspace deletion.
+  - `ADMIN`: API key rotation, guardrail threshold management, incident webhook alerts, and ClickHouse cluster migrations.
+  - `DEVELOPER`: Live Agent Studio execution, in-DAG breakpoint interventions, Red-Ghost simulation, and DPO training export.
+  - `VIEWER`: Read-only audit access to execution trees, time-travel playback, and telemetry charts.
+- **Team Workspace Management**: Invite members via email, update roles in real time, and inspect authorization logs.
+
 ---
 
 ## 🛠️ Technology Stack

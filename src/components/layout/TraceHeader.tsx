@@ -75,6 +75,7 @@ interface TraceHeaderProps {
   onOpenAlerts?: () => void;
   onOpenMissionControl?: () => void;
   onOpenStorageAdapter?: () => void;
+  onOpenAuthRbac?: () => void;
   isPhantomAiOpen?: boolean;
   onTogglePhantomAi?: () => void;
   onReloadSeed: () => void;
@@ -110,6 +111,7 @@ export function TraceHeader({
   onOpenAlerts,
   onOpenMissionControl,
   onOpenStorageAdapter,
+  onOpenAuthRbac,
   isPhantomAiOpen = false,
   onTogglePhantomAi,
   onReloadSeed,
@@ -681,6 +683,20 @@ ${n.content}`
           title="Reset Demo Traces"
         >
           <RotateCw className={`w-3.5 h-3.5 ${isSeeding ? "animate-spin text-cyan-400" : ""}`} />
+        </button>
+
+        {/* User Identity & Multi-Tenant RBAC Avatar Button */}
+        <button
+          onClick={onOpenAuthRbac}
+          className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 border border-purple-500/70 text-purple-200 text-xs font-semibold transition-all shadow-[0_0_12px_rgba(168,85,247,0.3)] ml-1"
+          title="Manage Cloud Identity, Multi-Tenant Team Members & RBAC Roles"
+        >
+          <img
+            src="https://avatars.githubusercontent.com/u/1024025?v=4"
+            alt="User Avatar"
+            className="w-5 h-5 rounded-lg border border-purple-400/80 object-cover"
+          />
+          <span className="hidden sm:inline font-mono text-[11px]">OWNER</span>
         </button>
       </div>
     </header>
