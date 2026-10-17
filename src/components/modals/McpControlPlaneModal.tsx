@@ -326,7 +326,7 @@ export function McpControlPlaneModal({ isOpen, onClose }: McpControlPlaneModalPr
             {/* Dispatch Action */}
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-slate-400 font-mono">
-                Transport: {selectedServer.transport.toUpperCase()} // Standard Protocol
+                Transport: {selectedServer.transport.toUpperCase()} • Standard Protocol
               </span>
               <button
                 onClick={handleDispatchRpc}

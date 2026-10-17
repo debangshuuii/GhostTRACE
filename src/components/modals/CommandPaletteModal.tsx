@@ -33,6 +33,7 @@ import {
   AlertTriangle,
   Coins,
   Orbit,
+  AlertOctagon,
 } from "lucide-react";
 
 export interface CommandItem {
@@ -72,6 +73,7 @@ interface CommandPaletteModalProps {
     openAlerts: () => void;
     openGuardrails: () => void;
     openAnalytics: () => void;
+    openRca?: () => void;
     cycleTheme: () => void;
     reloadSeed: () => void;
   };
@@ -263,6 +265,17 @@ export function CommandPaletteModal({
         icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />,
         onSelect: () => actions.openGuardrails(),
         keywords: ["guardrails", "safety", "policies", "rules", "destructive", "rm -rf"],
+      },
+      {
+        id: "cmd-rca-engine",
+        category: "action",
+        title: "Automated Incident RCA & Post-Mortem",
+        subtitle: "Classify agent failure signatures, inspect causal timelines & generate remediation blueprints",
+        badge: "RCA",
+        badgeColor: "bg-red-950 text-red-300 border-red-700",
+        icon: <AlertOctagon className="w-4 h-4 text-red-400" />,
+        onSelect: () => (actions.openRca ? actions.openRca() : null),
+        keywords: ["rca", "incident", "failure", "postmortem", "root cause", "classify", "remediation", "debug", "error"],
       },
       {
         id: "cmd-cycle-theme",

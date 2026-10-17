@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { TraceRunData, TraceNodeData } from "@/lib/types";
 import {
   PhantomMessage,
@@ -70,54 +70,55 @@ export function PhantomAiPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  if (!isOpen) return null;
+  const handleSendMessage = useCallback(
+    async (queryText?: string) => {
+      const textToSend = (queryText || inputQuery).trim();
+      if (!textToSend || isLoading) return;
 
-  const handleSendMessage = async (queryText?: string) => {
-    const textToSend = (queryText || inputQuery).trim();
-    if (!textToSend || isLoading) return;
+      const userMsg: PhantomMessage = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        content: textToSend,
+      };
 
-    const userMsg: PhantomMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      content: textToSend,
-    };
+      setMessages((prev) => [...prev, userMsg]);
+      setInputQuery("");
+      setIsLoading(true);
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInputQuery("");
-    setIsLoading(true);
+      try {
+        // Call backend API with local fallback
+        const res = await fetch("/api/ai/phantom", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: textToSend,
+            trace,
+            selectedNode,
+          }),
+        });
 
-    try {
-      // Call backend API with local fallback
-      const res = await fetch("/api/ai/phantom", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: textToSend,
-          trace,
-          selectedNode,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.message) {
-          setMessages((prev) => [...prev, data.message]);
-          setIsLoading(false);
-          return;
+        if (res.ok) {
+          const data = await res.json();
+          if (data.message) {
+            setMessages((prev) => [...prev, data.message]);
+            setIsLoading(false);
+            return;
+          }
         }
+      } catch {
+        // Silent catch, fallback below
       }
-    } catch {
-      // Silent catch, fallback below
-    }
 
-    // High-fidelity fallback response
-    setTimeout(() => {
-      const fallbackResponse = generatePhantomResponse(textToSend, trace, selectedNode);
-      setMessages((prev) => [...prev, fallbackResponse]);
-      setIsLoading(false);
-    }, 450);
-  };
+      // High-fidelity fallback response
+      setTimeout(() => {
+        const fallbackResponse = generatePhantomResponse(textToSend, trace, selectedNode);
+        setMessages((prev) => [...prev, fallbackResponse]);
+        setIsLoading(false);
+      }, 450);
+    },
+    [inputQuery, isLoading, trace, selectedNode]
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -146,6 +147,8 @@ export function PhantomAiPanel({
       },
     ]);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div

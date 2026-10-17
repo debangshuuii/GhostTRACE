@@ -45,7 +45,9 @@ import {
   Search,
   Filter,
   X,
+  Camera,
 } from "lucide-react";
+import { toPng, toSvg } from "html-to-image";
 
 interface FlowCanvasProps {
   trace: TraceRunData | null;
@@ -60,11 +62,83 @@ export function FlowCanvas({
   selectedNodeId,
   onForkNode,
 }: FlowCanvasProps) {
-  const [showGhostBranches, setShowGhostBranches] = useState(true);
-  const [viewMode, setViewMode] = useState<"dag" | "auto_lr" | "auto_tb" | "tot" | "swimlane">("dag");
+  const [showGhostBranches, setShowGhostBranches] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("ghosttrace_show_ghost_branches");
+        if (saved !== null) return saved === "true";
+      } catch {}
+    }
+    return true;
+  });
+
+  const [viewMode, setViewMode] = useState<"dag" | "auto_lr" | "auto_tb" | "tot" | "swimlane">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("ghosttrace_view_mode");
+        if (saved && ["dag", "auto_lr", "auto_tb", "tot", "swimlane"].includes(saved)) {
+          return saved as any;
+        }
+      } catch {}
+    }
+    return "dag";
+  });
+
   const [showMiniMap, setShowMiniMap] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"ALL" | "GHOST" | "TOOL" | "LLM" | "THINKING">("ALL");
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ghosttrace_show_ghost_branches", String(showGhostBranches));
+    } catch {}
+  }, [showGhostBranches]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("ghosttrace_view_mode", viewMode);
+    } catch {}
+  }, [viewMode]);
+
+  // Canvas Image / Vector Export State
+  const [exportingImage, setExportingImage] = useState(false);
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const handleExportImage = async (format: "png" | "svg" = "png") => {
+    if (!canvasContainerRef.current) return;
+    try {
+      setExportingImage(true);
+      const flowElement = canvasContainerRef.current.querySelector(".react-flow__viewport") as HTMLElement;
+      const targetElement = flowElement || canvasContainerRef.current;
+
+      const dataUrl =
+        format === "png"
+          ? await toPng(targetElement, {
+              backgroundColor: "#070b12",
+              cacheBust: true,
+              pixelRatio: 2,
+              filter: (node: any) => {
+                if (node.classList?.contains("react-flow__panel")) return false;
+                if (node.classList?.contains("react-flow__controls")) return false;
+                if (node.classList?.contains("react-flow__minimap")) return false;
+                return true;
+              },
+            })
+          : await toSvg(targetElement, {
+              backgroundColor: "#070b12",
+              cacheBust: true,
+            });
+
+      const link = document.createElement("a");
+      link.download = `ghosttrace_${trace?.id || "graph"}_dag.${format}`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Failed to export canvas image:", err);
+    } finally {
+      setExportingImage(false);
+    }
+  };
 
   // Time-Travel Debugger Scrubber State
   const [replayStep, setReplayStep] = useState<number | null>(null);
@@ -406,7 +480,7 @@ export function FlowCanvas({
   const currentScrubValue = replayStep === null ? maxStep : replayStep;
 
   return (
-    <div className="w-full h-full relative select-none bg-[#070b12]">
+    <div ref={canvasContainerRef} className="w-full h-full relative select-none bg-[#070b12]">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -591,6 +665,29 @@ export function FlowCanvas({
               <MapIcon className="w-3 h-3" />
               <span>Map {showMiniMap ? "ON" : "OFF"}</span>
             </button>
+
+            <span className="text-slate-600">|</span>
+
+            {/* 1-Click High-Res Canvas Snapshot Export */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => handleExportImage("png")}
+                disabled={exportingImage}
+                className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 font-medium transition-all disabled:opacity-50"
+                title="Export High-Resolution Canvas Snapshot (PNG)"
+              >
+                <Camera className={`w-3 h-3 text-cyan-400 ${exportingImage ? "animate-spin" : ""}`} />
+                <span>{exportingImage ? "Capturing..." : "PNG"}</span>
+              </button>
+              <button
+                onClick={() => handleExportImage("svg")}
+                disabled={exportingImage}
+                className="flex items-center gap-1 px-1.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700/80 font-mono text-[10px] transition-all disabled:opacity-50"
+                title="Export Vector Graph (SVG)"
+              >
+                <span>SVG</span>
+              </button>
+            </div>
 
             <span className="text-slate-600">|</span>
 

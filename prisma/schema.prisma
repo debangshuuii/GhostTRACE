@@ -46,6 +46,7 @@ model TraceRun {
   nodes            TraceNode[]
   edges            TraceEdge[]
   evaluations      TraceEvaluation[]
+  annotations      TraceAnnotation[]
 
   @@index([workspaceId])
   @@index([sessionId])
@@ -194,5 +195,41 @@ model WorkspaceMember {
   @@unique([workspaceId, userId])
   @@index([workspaceId])
   @@index([userId])
+}
+
+model RegressionTestCase {
+  id               String    @id @default(cuid())
+  workspaceId      String?
+  name             String
+  category         String    // SAFETY_GUARDRAIL, HALLUCINATION_PRUNING, EFFICIENCY_BUDGET, CRYPTO_SOUNDNESS
+  originTraceId    String
+  originNodeId     String
+  inputPrompt      String
+  expectedBehavior String
+  forbiddenPattern String
+  maxTokensAllowed Int       @default(5000)
+  status           String    @default("PASS") // PASS, FAIL, PENDING
+  lastRunAt        DateTime?
+  failureReason    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([workspaceId])
+  @@index([originTraceId])
+}
+
+model TraceAnnotation {
+  id         String   @id @default(cuid())
+  traceRunId String
+  nodeId     String
+  author     String   @default("Operator")
+  content    String
+  sentiment  String   @default("NEUTRAL") // PRAISE, WARNING, VETO_DISPUTE, BUG, NEUTRAL
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  traceRun   TraceRun @relation(fields: [traceRunId], references: [id], onDelete: Cascade)
+
+  @@index([traceRunId])
+  @@index([nodeId])
 }
 

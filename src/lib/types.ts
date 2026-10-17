@@ -80,6 +80,17 @@ export interface TraceEvaluationData {
   createdAt?: string | Date;
 }
 
+export interface TraceAnnotationData {
+  id: string;
+  traceRunId: string;
+  nodeId: string;
+  author: string;
+  content: string;
+  sentiment: "PRAISE" | "WARNING" | "VETO_DISPUTE" | "BUG" | "NEUTRAL";
+  createdAt: string | Date;
+  updatedAt?: string | Date;
+}
+
 export interface TraceRunData {
   id: string;
   title: string;
@@ -106,6 +117,7 @@ export interface TraceRunData {
   nodes: TraceNodeData[];
   edges: TraceEdgeData[];
   evaluations?: TraceEvaluationData[];
+  annotations?: TraceAnnotationData[];
 }
 
 export interface ConversationSessionData {

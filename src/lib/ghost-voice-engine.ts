@@ -329,3 +329,5 @@ export class GhostVoiceController {
     return Boolean(this.synth?.speaking);
   }
 }
+
+export const ghostVoice = new GhostVoiceController();

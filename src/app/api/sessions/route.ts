@@ -60,16 +60,37 @@ export async function GET(req: Request) {
       if (new Date(trace.createdAt) > new Date(s.lastTurnAt)) {
         s.lastTurnAt = trace.createdAt;
       }
+      let parsedTags: string[] = [];
+      try {
+        parsedTags = typeof trace.tags === "string" ? JSON.parse(trace.tags || "[]") : (trace.tags || []);
+      } catch {
+        parsedTags = [];
+      }
+
       s.traces.push({
         ...trace,
-        tags: typeof trace.tags === "string" ? JSON.parse(trace.tags || "[]") : trace.tags,
-        nodes: trace.nodes.map((n) => ({
-          ...n,
-          rawInput: n.rawInput ? JSON.parse(n.rawInput) : null,
-          rawOutput: n.rawOutput ? JSON.parse(n.rawOutput) : null,
-          status: n.status as any,
-          type: n.type as any,
-        })),
+        tags: parsedTags,
+        nodes: trace.nodes.map((n) => {
+          let parsedInput = null;
+          let parsedOutput = null;
+          try {
+            if (n.rawInput) parsedInput = typeof n.rawInput === "string" ? JSON.parse(n.rawInput) : n.rawInput;
+          } catch {
+            parsedInput = n.rawInput;
+          }
+          try {
+            if (n.rawOutput) parsedOutput = typeof n.rawOutput === "string" ? JSON.parse(n.rawOutput) : n.rawOutput;
+          } catch {
+            parsedOutput = n.rawOutput;
+          }
+          return {
+            ...n,
+            rawInput: parsedInput,
+            rawOutput: parsedOutput,
+            status: n.status as any,
+            type: n.type as any,
+          };
+        }),
         edges: trace.edges.map((e) => ({
           ...e,
           type: e.type as any,

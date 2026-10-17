@@ -74,9 +74,26 @@ export async function sendWebhook(
       ? `http://localhost:3000?traceId=${encodeURIComponent(payload.traceId)}`
       : "http://localhost:3000";
 
-    if (type === "SLACK") {
+    // Auto-detect webhook provider from URL to prevent mismatch
+    let resolvedType = (type || "SLACK").toUpperCase();
+    if (url.includes("discord.com/api/webhooks")) {
+      resolvedType = "DISCORD";
+    } else if (url.includes("hooks.slack.com")) {
+      resolvedType = "SLACK";
+    }
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "User-Agent": "GhostTRACE-Monitor/1.0",
+    };
+
+    if (resolvedType === "SLACK") {
       const icon = payload.severity === "CRITICAL" ? "🚨" : payload.severity === "HIGH" ? "⚠️" : "ℹ️";
+      const summaryText = `${icon} GhostTRACE Alert [${payload.severity}]: ${payload.title} - ${payload.reason}`;
+
       body = {
+        // Fallback text is strictly REQUIRED by Slack Incoming Webhooks
+        text: summaryText,
         blocks: [
           {
             type: "header",
@@ -113,9 +130,10 @@ export async function sendWebhook(
           },
         ],
       };
-    } else if (type === "DISCORD") {
+    } else if (resolvedType === "DISCORD") {
       const color = payload.severity === "CRITICAL" ? 0xef4444 : payload.severity === "HIGH" ? 0xf59e0b : 0x3b82f6;
       body = {
+        content: `🚨 **GhostTRACE Alert [${payload.severity}]**: ${payload.title}`,
         embeds: [
           {
             title: `🚨 GhostTRACE Alert: ${payload.title}`,
@@ -123,10 +141,10 @@ export async function sendWebhook(
             url: traceUrl,
             color,
             fields: [
-              { name: "Severity", value: payload.severity, inline: true },
-              { name: "Category", value: payload.category, inline: true },
-              { name: "Agent", value: payload.agentName, inline: true },
-              { name: "Model", value: payload.model, inline: true },
+              { name: "Severity", value: payload.severity || "HIGH", inline: true },
+              { name: "Category", value: payload.category || "GUARDRAIL", inline: true },
+              { name: "Agent", value: payload.agentName || "Agent", inline: true },
+              { name: "Model", value: payload.model || "Unknown", inline: true },
               { name: "Tokens", value: String(payload.tokensConsumed || "N/A"), inline: true },
             ],
             footer: {
@@ -148,15 +166,24 @@ export async function sendWebhook(
 
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000), // 8s timeout to prevent hanging UI
     });
 
     if (!res.ok) {
-      return { success: false, status: res.status, error: `HTTP ${res.status}` };
+      let detail = `HTTP ${res.status}`;
+      try {
+        const text = await res.text();
+        if (text) {
+          detail = `${detail} - ${text.slice(0, 150)}`;
+        }
+      } catch {}
+      return { success: false, status: res.status, error: detail };
     }
     return { success: true, status: res.status };
   } catch (err: any) {
-    return { success: false, error: err.message || "Network error" };
+    return { success: false, error: err.name === "TimeoutError" ? "Webhook request timed out after 8s" : (err.message || "Network error") };
   }
 }
+

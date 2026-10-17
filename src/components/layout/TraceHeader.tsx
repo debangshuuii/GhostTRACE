@@ -39,6 +39,7 @@ import {
   Crosshair,
   Coins,
   Orbit,
+  AlertOctagon,
 } from "lucide-react";
 import { detectTraceAnomalies } from "@/lib/anomaly-detector";
 
@@ -81,6 +82,7 @@ interface TraceHeaderProps {
   onOpenCommandPalette?: () => void;
   onOpenCacheOptimizer?: () => void;
   onOpenGalaxy?: () => void;
+  onOpenRca?: () => void;
   isPhantomAiOpen?: boolean;
   onTogglePhantomAi?: () => void;
   onReloadSeed: () => void;
@@ -120,6 +122,7 @@ export function TraceHeader({
   onOpenCommandPalette,
   onOpenCacheOptimizer,
   onOpenGalaxy,
+  onOpenRca,
   isPhantomAiOpen = false,
   onTogglePhantomAi,
   onReloadSeed,
@@ -131,9 +134,24 @@ export function TraceHeader({
   const [exporting, setExporting] = useState(false);
   const [theme, setTheme] = useState<"cyber" | "obsidian" | "paper">("cyber");
 
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem("ghosttrace_theme") as "cyber" | "obsidian" | "paper" | null;
+      if (savedTheme && ["cyber", "obsidian", "paper"].includes(savedTheme)) {
+        setTheme(savedTheme);
+        document.body.classList.remove("theme-obsidian", "theme-paper");
+        if (savedTheme === "obsidian") document.body.classList.add("theme-obsidian");
+        if (savedTheme === "paper") document.body.classList.add("theme-paper");
+      }
+    } catch {}
+  }, []);
+
   const cycleTheme = () => {
     const nextTheme = theme === "cyber" ? "obsidian" : theme === "obsidian" ? "paper" : "cyber";
     setTheme(nextTheme);
+    try {
+      localStorage.setItem("ghosttrace_theme", nextTheme);
+    } catch {}
     document.body.classList.remove("theme-obsidian", "theme-paper");
     if (nextTheme === "obsidian") document.body.classList.add("theme-obsidian");
     if (nextTheme === "paper") document.body.classList.add("theme-paper");
@@ -592,6 +610,16 @@ ${n.content}`
         >
           <FlaskConical className="w-3.5 h-3.5 text-purple-400" />
           <span className="hidden lg:inline">Regressions</span>
+        </button>
+
+        {/* Automated RCA Post-Mortem Button */}
+        <button
+          onClick={onOpenRca}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-950/70 hover:bg-red-900/80 text-red-300 border border-red-600/60 text-xs font-semibold transition-all shadow-[0_0_12px_rgba(239,68,68,0.25)]"
+          title="Automated Root Cause Analysis (RCA) & Incident Post-Mortem"
+        >
+          <AlertOctagon className="w-3.5 h-3.5 text-red-400" />
+          <span className="hidden xl:inline">RCA Engine</span>
         </button>
 
         {/* Fleet Stats Button */}

@@ -34,8 +34,10 @@ import { CommandPaletteModal } from "@/components/modals/CommandPaletteModal";
 import { PromptCacheOptimizerModal } from "@/components/modals/PromptCacheOptimizerModal";
 import { EmbeddingGalaxyModal } from "@/components/modals/EmbeddingGalaxyModal";
 import { PhantomAiPanel } from "@/components/copilot/PhantomAiPanel";
+import { GhostVoiceHud } from "@/components/voice/GhostVoiceHud";
+import { RcaPostMortemModal } from "@/components/modals/RcaPostMortemModal";
 import { WorkspaceItem } from "@/components/layout/TraceHeader";
-import { Sparkles, AlertCircle, Ghost } from "lucide-react";
+import { AlertCircle, Ghost } from "lucide-react";
 
 export default function Home() {
   const [traces, setTraces] = useState<TraceRunData[]>([]);
@@ -82,6 +84,8 @@ export default function Home() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [cacheOptimizerOpen, setCacheOptimizerOpen] = useState(false);
   const [galaxyModalOpen, setGalaxyModalOpen] = useState(false);
+  const [rcaModalOpen, setRcaModalOpen] = useState(false);
+  const [nodeForRca, setNodeForRca] = useState<TraceNodeData | null>(null);
   const [nodeToReExecute, setNodeToReExecute] = useState<TraceNodeData | null>(null);
   const [pausedNode, setPausedNode] = useState<TraceNodeData | null>(null);
   const [nodeToFork, setNodeToFork] = useState<TraceNodeData | null>(null);
@@ -398,6 +402,7 @@ export default function Home() {
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onOpenCacheOptimizer={() => setCacheOptimizerOpen(true)}
         onOpenGalaxy={() => setGalaxyModalOpen(true)}
+        onOpenRca={() => setRcaModalOpen(true)}
         isPhantomAiOpen={phantomAiOpen}
         onTogglePhantomAi={() => setPhantomAiOpen(!phantomAiOpen)}
         onReloadSeed={handleReloadSeed}
@@ -478,6 +483,23 @@ export default function Home() {
             onReExecuteNode={handleOpenReExecute}
             onPromoteToTest={handlePromoteToTest}
             onOpenRedGhost={() => setRedGhostModalOpen(true)}
+            onOpenRca={(node) => {
+              setNodeForRca(node);
+              setRcaModalOpen(true);
+            }}
+            traceRunId={selectedTraceId}
+          />
+
+          {/* Floating AI Voice Synthesizer & Trace Audio Narrator HUD */}
+          <GhostVoiceHud
+            currentNode={
+              selectedNode ||
+              (selectedTrace?.nodes && selectedTrace.nodes.length > 0
+                ? selectedTrace.nodes[0]
+                : null)
+            }
+            allNodes={selectedTrace?.nodes || []}
+            onSelectNode={(n) => setSelectedNode(n)}
           />
         </main>
 
@@ -721,6 +743,7 @@ export default function Home() {
           openAlerts: () => setAlertsModalOpen(true),
           openGuardrails: () => setGuardrailsModalOpen(true),
           openAnalytics: () => setAnalyticsDrawerOpen(true),
+          openRca: () => setRcaModalOpen(true),
           cycleTheme: () => {
             const isDark = document.body.classList.contains("theme-obsidian");
             const isPaper = document.body.classList.contains("theme-paper");
@@ -749,6 +772,17 @@ export default function Home() {
         traces={traces}
         onSelectTrace={handleSelectTrace}
         onSelectNode={(node) => setSelectedNode(node)}
+      />
+
+      {/* Automated Root Cause Analysis (RCA) & Incident Post-Mortem Modal */}
+      <RcaPostMortemModal
+        isOpen={rcaModalOpen}
+        onClose={() => {
+          setRcaModalOpen(false);
+          setNodeForRca(null);
+        }}
+        trace={selectedTrace}
+        selectedNode={nodeForRca || selectedNode}
       />
     </div>
   );

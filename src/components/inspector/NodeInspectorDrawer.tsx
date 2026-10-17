@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { TraceNodeData } from "@/lib/types";
+import React, { useState, useEffect } from "react";
+import { TraceNodeData, TraceAnnotationData } from "@/lib/types";
 import { extractMCPMetadata } from "@/lib/mcp-parser";
 import { analyzeChainOfThought } from "@/lib/cot-analyzer";
 import { extractNodeDiffAndMemory } from "@/lib/code-diff-engine";
@@ -40,6 +40,10 @@ import {
   Minus,
   FileDiff,
   CheckCheck,
+  AlertOctagon,
+  Trash2,
+  Send,
+  Tag,
 } from "lucide-react";
 
 interface NodeInspectorDrawerProps {
@@ -49,6 +53,8 @@ interface NodeInspectorDrawerProps {
   onReExecuteNode?: (node: TraceNodeData) => void;
   onPromoteToTest?: (node: TraceNodeData) => void;
   onOpenRedGhost?: () => void;
+  onOpenRca?: (node: TraceNodeData) => void;
+  traceRunId?: string | null;
 }
 
 export function NodeInspectorDrawer({
@@ -58,11 +64,86 @@ export function NodeInspectorDrawer({
   onReExecuteNode,
   onPromoteToTest,
   onOpenRedGhost,
+  onOpenRca,
+  traceRunId,
 }: NodeInspectorDrawerProps) {
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<"details" | "diff" | "cot" | "mcp" | "memory" | "raw">("details");
+  const [activeTab, setActiveTab] = useState<
+    "details" | "diff" | "cot" | "mcp" | "memory" | "annotations" | "raw"
+  >("details");
   const [selectedDiffFileIndex, setSelectedDiffFileIndex] = useState(0);
   const [diffSubTab, setDiffSubTab] = useState<"code_diff" | "vfs" | "scratchpad">("code_diff");
+
+  // Node Annotations & Team Notes state
+  const [annotations, setAnnotations] = useState<TraceAnnotationData[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [newAuthor, setNewAuthor] = useState("Lead Operator");
+  const [newSentiment, setNewSentiment] = useState<
+    "PRAISE" | "WARNING" | "VETO_DISPUTE" | "BUG" | "NEUTRAL"
+  >("NEUTRAL");
+  const [isPostingNote, setIsPostingNote] = useState(false);
+
+  useEffect(() => {
+    if (traceRunId && node?.nodeId) {
+      fetch(
+        `/api/traces/${encodeURIComponent(traceRunId)}/annotations?nodeId=${encodeURIComponent(
+          node.nodeId
+        )}`
+      )
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => setAnnotations(data))
+        .catch(() => setAnnotations([]));
+    } else {
+      setAnnotations([]);
+    }
+  }, [traceRunId, node?.nodeId]);
+
+  const handleAddAnnotation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNote.trim() || !traceRunId || !node?.nodeId) return;
+    try {
+      setIsPostingNote(true);
+      const res = await fetch(
+        `/api/traces/${encodeURIComponent(traceRunId)}/annotations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nodeId: node.nodeId,
+            author: newAuthor.trim() || "Operator",
+            content: newNote.trim(),
+            sentiment: newSentiment,
+          }),
+        }
+      );
+      if (res.ok) {
+        const created = await res.json();
+        setAnnotations((prev) => [created, ...prev]);
+        setNewNote("");
+      }
+    } catch (err) {
+      console.error("Failed to add note:", err);
+    } finally {
+      setIsPostingNote(false);
+    }
+  };
+
+  const handleDeleteAnnotation = async (annotationId: string) => {
+    if (!traceRunId) return;
+    try {
+      const res = await fetch(
+        `/api/traces/${encodeURIComponent(
+          traceRunId
+        )}/annotations?annotationId=${encodeURIComponent(annotationId)}`,
+        { method: "DELETE" }
+      );
+      if (res.ok) {
+        setAnnotations((prev) => prev.filter((a) => a.id !== annotationId));
+      }
+    } catch (err) {
+      console.error("Failed to delete annotation:", err);
+    }
+  };
 
   if (!node) return null;
 
@@ -241,10 +322,37 @@ export function NodeInspectorDrawer({
             <Code2 className="w-3.5 h-3.5" />
             <span>Raw</span>
           </button>
+          <button
+            onClick={() => setActiveTab("annotations")}
+            className={`py-2 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              activeTab === "annotations"
+                ? "border-amber-400 text-amber-300"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+            <span>Team Notes</span>
+            {annotations.length > 0 && (
+              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 font-mono font-bold">
+                {annotations.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 ml-2">
+          {onOpenRca && (
+            <button
+              onClick={() => onOpenRca(node)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 px-2 py-1 rounded bg-amber-950/60 border border-amber-800/60 hover:bg-amber-900/60 transition-colors whitespace-nowrap cursor-pointer"
+              title="Run Root Cause Analysis (RCA) on this step"
+            >
+              <AlertOctagon className="w-3 h-3 text-amber-400" />
+              <span>RCA</span>
+            </button>
+          )}
+
           {node.isGhost && onPromoteToTest && (
             <button
               onClick={() => onPromoteToTest(node)}
@@ -1005,6 +1113,111 @@ export function NodeInspectorDrawer({
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        ) : activeTab === "annotations" ? (
+          <div className="space-y-4">
+            {/* Form to add note */}
+            <form
+              onSubmit={handleAddAnnotation}
+              className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Add Operator Note / Flag</span>
+                </h4>
+                <select
+                  value={newSentiment}
+                  onChange={(e: any) => setNewSentiment(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-[10px] font-mono text-slate-300 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="NEUTRAL">NEUTRAL</option>
+                  <option value="WARNING">WARNING ⚠️</option>
+                  <option value="BUG">BUG 🐞</option>
+                  <option value="VETO_DISPUTE">VETO DISPUTE ⚔️</option>
+                  <option value="PRAISE">PRAISE ⭐</option>
+                </select>
+              </div>
+              <textarea
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Drop a note for your team (e.g., 'False positive critic veto on step 3', 'Token leak spotted in prompt context')..."
+                rows={2}
+                className="w-full p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              />
+              <div className="flex items-center justify-between">
+                <input
+                  type="text"
+                  value={newAuthor}
+                  onChange={(e) => setNewAuthor(e.target.value)}
+                  placeholder="Author name"
+                  className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300 w-36 focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  type="submit"
+                  disabled={!newNote.trim() || isPostingNote}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Send className="w-3 h-3" />
+                  <span>Post Note</span>
+                </button>
+              </div>
+            </form>
+
+            {/* Existing notes list */}
+            <div className="space-y-2">
+              {annotations.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                  No team notes on this step yet. Be the first to drop an operator note!
+                </div>
+              ) : (
+                annotations.map((ann) => (
+                  <div
+                    key={ann.id}
+                    className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1.5 relative group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-200">{ann.author}</span>
+                        <span
+                          className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                            ann.sentiment === "WARNING"
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                              : ann.sentiment === "BUG"
+                              ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                              : ann.sentiment === "VETO_DISPUTE"
+                              ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                              : ann.sentiment === "PRAISE"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                              : "bg-slate-800 text-slate-400 border border-slate-700"
+                          }`}
+                        >
+                          {ann.sentiment}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {new Date(ann.createdAt).toLocaleDateString([], {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteAnnotation(ann.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-rose-400 transition-all cursor-pointer"
+                          title="Delete Note"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed font-sans">
+                      {ann.content}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         ) : (
