@@ -42,6 +42,7 @@ import {
   AlertOctagon,
 } from "lucide-react";
 import { detectTraceAnomalies } from "@/lib/anomaly-detector";
+import { sanitizeTraceRun } from "@/lib/pii-sanitizer";
 
 export interface WorkspaceItem {
   id: string;
@@ -133,6 +134,7 @@ export function TraceHeader({
   const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [theme, setTheme] = useState<"cyber" | "obsidian" | "paper">("cyber");
+  const [redactPii, setRedactPii] = useState(true);
 
   useEffect(() => {
     try {
@@ -162,22 +164,24 @@ export function TraceHeader({
     if (!selectedTrace) return;
     try {
       setExporting(true);
+      const traceToExport = redactPii ? sanitizeTraceRun(selectedTrace).sanitizedTrace : selectedTrace;
       const zip = new JSZip();
 
-      zip.file(`trace_${selectedTrace.id}.json`, JSON.stringify(selectedTrace, null, 2));
+      zip.file(`trace_${traceToExport.id}.json`, JSON.stringify(traceToExport, null, 2));
 
       const reportMarkdown = `# GhostTRACE Execution Audit Report
-**Title**: ${selectedTrace.title}
-**Agent**: ${selectedTrace.agentName}
-**Model**: ${selectedTrace.model}
-**Status**: ${selectedTrace.status}
-**Total Tokens**: ${selectedTrace.totalTokens} (Reasoning: ${selectedTrace.reasoningTokens})
-**Duration**: ${selectedTrace.durationMs}ms
-**Ghost Branches Pruned**: ${selectedTrace.ghostBranchCount}
+**Title**: ${traceToExport.title}
+**Agent**: ${traceToExport.agentName}
+**Model**: ${traceToExport.model}
+**Status**: ${traceToExport.status}
+**Total Tokens**: ${traceToExport.totalTokens} (Reasoning: ${traceToExport.reasoningTokens})
+**Duration**: ${traceToExport.durationMs}ms
+**Ghost Branches Pruned**: ${traceToExport.ghostBranchCount}
+${redactPii ? "> [!NOTE]\n> PII & Secrets Shield active: API keys, tokens, and credentials sanitized." : ""}
 
 ---
 ## Execution Steps Summary
-${(selectedTrace.nodes || [])
+${(traceToExport.nodes || [])
   .map(
     (n) =>
       `### Step ${n.stepIndex}: ${n.label} [${n.isGhost ? "GHOST - PRUNED" : n.type}]
@@ -207,11 +211,12 @@ ${n.content}`
   // Export standalone single-file interactive HTML report
   const handleExportHtml = () => {
     if (!selectedTrace) return;
+    const traceToExport = redactPii ? sanitizeTraceRun(selectedTrace).sanitizedTrace : selectedTrace;
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>GhostTRACE Report: ${selectedTrace.title}</title>
+  <title>GhostTRACE Report: ${traceToExport.title}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #080d19; color: #f1f5f9; padding: 24px; margin: 0; }
     .header { border-bottom: 1px solid #1e293b; padding-bottom: 16px; margin-bottom: 24px; }
@@ -728,6 +733,23 @@ ${n.content}`
           title="Export ZIP Archive Bundle"
         >
           <Download className="w-3.5 h-3.5 text-indigo-400" />
+        </button>
+
+        {/* Enterprise PII Redaction Shield Toggle */}
+        <button
+          onClick={() => setRedactPii(!redactPii)}
+          className={`p-1.5 rounded-lg border transition-all ${
+            redactPii
+              ? "bg-emerald-950/80 text-emerald-300 border-emerald-600/70 shadow-[0_0_10px_rgba(16,185,129,0.25)]"
+              : "bg-slate-900/90 text-slate-500 border-slate-700 hover:text-slate-300"
+          }`}
+          title={`Enterprise PII & Secrets Redaction Shield: ${
+            redactPii
+              ? "ON (Masks API keys, tokens, credentials in exports)"
+              : "OFF (Raw export)"
+          }`}
+        >
+          <ShieldCheck className={`w-3.5 h-3.5 ${redactPii ? "text-emerald-400" : "text-slate-500"}`} />
         </button>
 
         {/* Import Trace */}

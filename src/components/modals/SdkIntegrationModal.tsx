@@ -9,9 +9,8 @@ import {
   Check,
   Send,
   Loader2,
-  CheckCircle2,
-  BookOpen,
-  Sparkles,
+  FlaskConical,
+  ArrowRight,
 } from "lucide-react";
 
 interface SdkIntegrationModalProps {
@@ -20,13 +19,204 @@ interface SdkIntegrationModalProps {
   onTraceCreated?: (traceId: string) => void;
 }
 
+const PRESET_PAYLOADS = {
+  langchain: {
+    endpoint: "/api/ingest/langchain",
+    name: "LangGraph Multi-Step Agent (with Ghost Veto)",
+    body: {
+      name: "Autonomous Cloud Infrastructure Healer",
+      run_type: "chain",
+      inputs: { input: "Investigate latency spike and isolate failing payment replica." },
+      extra: {
+        metadata: {
+          model: "claude-3-7-sonnet",
+          agent_name: "CloudResilienceAgent"
+        }
+      },
+      child_runs: [
+        {
+          name: "Query Kubernetes Pod Metrics",
+          run_type: "tool",
+          inputs: { namespace: "production", deployment: "payment-worker" },
+          outputs: { oomCount: 4, memoryUsagePercent: 96.8 }
+        },
+        {
+          name: "Ghost: Hard Reboot Database Cluster Master",
+          run_type: "llm",
+          inputs: { action: "cluster_reboot" },
+          outputs: { output: "Initiating emergency failover restart." },
+          extra: {
+            metadata: {
+              is_ghost: true,
+              ghost_reason: "Critic Security Veto: Destructive restart causes cascading connection pool exhaustion."
+            }
+          }
+        },
+        {
+          name: "Scale Pod Memory Limits Gracefully",
+          run_type: "tool",
+          inputs: { limits: "memory=2Gi", requests: "memory=1Gi" },
+          outputs: { status: "Deployment patched. Rollout status: 3/3 pods healthy." }
+        },
+        {
+          name: "Final Executive Resolution",
+          run_type: "llm",
+          inputs: { status: "RESOLVED" },
+          outputs: { output: "Root cause: OOM on bulk refunds. Memory limit doubled to 2Gi. Cluster latency returned to 32ms nominal." }
+        }
+      ]
+    }
+  },
+  otel: {
+    endpoint: "/api/ingest/otel",
+    name: "OpenTelemetry (OTel JSON Spans)",
+    body: {
+      resourceSpans: [
+        {
+          resource: {
+            attributes: [
+              { key: "service.name", value: { stringValue: "Kafka-Event-Processor" } },
+              { key: "gen_ai.request.model", value: { stringValue: "deepseek-r1" } }
+            ]
+          },
+          scopeSpans: [
+            {
+              spans: [
+                {
+                  spanId: "otel-s1",
+                  name: "Kafka Lag Analysis",
+                  attributes: [
+                    { key: "gen_ai.prompt", value: { stringValue: "Evaluate partition lag on checkout-transactions topic." } }
+                  ]
+                },
+                {
+                  spanId: "otel-ghost",
+                  parentSpanId: "otel-s1",
+                  name: "Ghost: Purge Unprocessed Queue Messages",
+                  attributes: [
+                    { key: "ghost", value: { boolValue: true } },
+                    { key: "ghost.reason", value: { stringValue: "Critic Guardrail Veto: Dropping customer transactions violates zero-data-loss policy." } }
+                  ]
+                },
+                {
+                  spanId: "otel-s2",
+                  parentSpanId: "otel-s1",
+                  name: "Autoscale Partition Consumer Replicas",
+                  attributes: [
+                    { key: "gen_ai.completion", value: { stringValue: "Scaled 4 additional consumer pods. Queue lag completely drained." } }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  mcp: {
+    endpoint: "/api/ingest/mcp",
+    name: "Anthropic MCP Tool Call Exchange",
+    body: {
+      clientName: "Claude Desktop (MCP Host)",
+      serverName: "production-postgres-mcp",
+      model: "claude-3-7-sonnet",
+      prompt: "Inspect transactions index health and mitigate table bloat",
+      exchanges: [
+        {
+          method: "tools/call",
+          request: { name: "explain_query", arguments: { sql: "SELECT * FROM transactions WHERE user_id = 'usr_998'" } },
+          response: { plan: "Seq Scan on transactions (cost=0.00..4520.00 rows=1)" },
+          latencyMs: 120
+        },
+        {
+          method: "tools/call",
+          request: { name: "drop_table", arguments: { table: "transactions" } },
+          isGhost: true,
+          ghostReason: "Critic Policy Veto: Destructive table drop blocked on production primary",
+          latencyMs: 80
+        },
+        {
+          method: "tools/call",
+          request: { name: "create_index", arguments: { sql: "CREATE INDEX CONCURRENTLY idx_tx_user ON transactions(user_id);" } },
+          response: { status: "SUCCESS", indexSize: "42MB" },
+          latencyMs: 450
+        }
+      ]
+    }
+  }
+};
+
 export function SdkIntegrationModal({ isOpen, onClose, onTraceCreated }: SdkIntegrationModalProps) {
-  const [activeTab, setActiveTab] = useState<"proxy" | "autoinstrument" | "mcp" | "python" | "typescript" | "otel" | "langgraph" | "curl">("proxy");
+  const [activeTab, setActiveTab] = useState<
+    "playground" | "proxy" | "autoinstrument" | "mcp" | "python" | "typescript" | "otel" | "langgraph" | "curl"
+  >("playground");
   const [copied, setCopied] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testSuccess, setTestSuccess] = useState<string | null>(null);
+  const [createdTraceId, setCreatedTraceId] = useState<string | null>(null);
+
+  // Playground State
+  const [selectedPreset, setSelectedPreset] = useState<"langchain" | "otel" | "mcp">("langchain");
+  const [playgroundJson, setPlaygroundJson] = useState<string>(
+    JSON.stringify(PRESET_PAYLOADS.langchain.body, null, 2)
+  );
+  const [playgroundEndpoint, setPlaygroundEndpoint] = useState<string>(
+    PRESET_PAYLOADS.langchain.endpoint
+  );
+  const [playgroundResponse, setPlaygroundResponse] = useState<any>(null);
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleSelectPreset = (presetKey: "langchain" | "otel" | "mcp") => {
+    setSelectedPreset(presetKey);
+    const preset = PRESET_PAYLOADS[presetKey];
+    setPlaygroundEndpoint(preset.endpoint);
+    setPlaygroundJson(JSON.stringify(preset.body, null, 2));
+    setPlaygroundResponse(null);
+    setJsonError(null);
+  };
+
+  const handleDispatchPlayground = async () => {
+    try {
+      setTesting(true);
+      setJsonError(null);
+      setPlaygroundResponse(null);
+
+      let parsedPayload: any;
+      try {
+        parsedPayload = JSON.parse(playgroundJson);
+      } catch (err: any) {
+        setJsonError(`Invalid JSON syntax: ${err.message}`);
+        setTesting(false);
+        return;
+      }
+
+      const res = await fetch(playgroundEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-ghosttrace-internal": "true",
+        },
+        body: JSON.stringify(parsedPayload),
+      });
+
+      const responseData = await res.json();
+      setPlaygroundResponse(responseData);
+
+      if (res.ok && responseData.traceId) {
+        setCreatedTraceId(responseData.traceId);
+        if (onTraceCreated) {
+          onTraceCreated(responseData.traceId);
+        }
+      } else {
+        setJsonError(responseData.error || `HTTP ${res.status}: Failed to ingest`);
+      }
+    } catch (err: any) {
+      setJsonError(err.message || "Network request failed");
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const proxySnippet = `# 👻 ZERO-CODE TRACING PROXY (Point any OpenAI-compatible client here)
 # Endpoint: http://localhost:3000/v1 (or /api/v1)
@@ -39,7 +229,6 @@ client = OpenAI(
     api_key="sk-..."  # Your OpenAI / DeepSeek key (or GhostTRACE gt_live_... key)
 )
 
-# DeepSeek-R1 / o1 reasoning, tool calls, and ghost branches are auto-captured!
 response = client.chat.completions.create(
     model="deepseek-r1",
     messages=[
@@ -56,7 +245,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-# 3. Environment Variable (Works with CrewAI, AutoGen, LangChain, Cursor, Open WebUI):
+# 3. Environment Variable (Works with CrewAI, AutoGen, LangChain, Cursor):
 export OPENAI_BASE_URL="http://localhost:3000/v1"`;
 
   const autoinstrumentSnippet = `# 📦 OFFICIAL PUBLIC REGISTRIES:
@@ -67,7 +256,6 @@ export OPENAI_BASE_URL="http://localhost:3000/v1"`;
 import ghosttrace
 from openai import OpenAI
 
-# Automatically intercepts client.chat.completions.create & extracts reasoning + tool calls
 ghosttrace.patch_openai()
 
 client = OpenAI()
@@ -76,288 +264,50 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": "Diagnose latency spike on payment worker"}]
 )
 
-# Also supports Anthropic Claude 3.7 with extended thinking blocks:
-ghosttrace.patch_anthropic()
+ghosttrace.patch_anthropic()`;
 
-# Or wrap any custom agent function directly:
-@ghosttrace.trace(title="Autonomous Auditor", agent_name="SecurityBot")
-def audit_database(session, db_config):
-    # Your agent code here...
-    return {"status": "secure"}
-
-# -------------------------------------------------------------
-# 📦 Option B: Node.js / TypeScript (npm install ghosttrace)
-import { wrapOpenAI } from "ghosttrace";
-import OpenAI from "openai";
-
-const client = wrapOpenAI(new OpenAI());`;
-
-  const pythonSnippet = `# GhostTRACE Python SDK (sdk/python/ghosttrace.py)
+  const pythonSnippet = `# GhostTRACE Python Native SDK
 from ghosttrace import GhostTraceClient
 
-client = GhostTraceClient(endpoint="http://localhost:3000")
+client = GhostTraceClient("http://localhost:3000")
+trace = client.start_trace(title="Fraud Detection Swarm", model="claude-3-7-sonnet")
 
-# 1. Start agent trace session
-trace = client.start_trace(
-    title="Autonomous SQL Query Optimization Agent",
-    agent_name="Postgres-Optimizer-Swarm",
-    model="deepseek-r1-distill",
-    tags=["python", "postgres", "sql-tuning"]
+step1 = trace.add_step(type="USER_PROMPT", content="Check transaction $45,000")
+step1.add_ghost_branch(
+    label="Auto-Block VIP Account",
+    ghost_reason="Critic Veto: Exceeds false-positive threshold."
 )
+trace.finish(status="COMPLETED")`;
 
-# 2. Add user prompt & reasoning steps
-step1 = trace.add_step(
-    node_type="USER_PROMPT",
-    label="User Query",
-    content="Query on orders table takes 3.8s. Recommend index to optimize."
-)
-
-step2 = step1.add_next_step(
-    node_type="THINKING",
-    label="Analyze EXPLAIN Output",
-    content="Detected sequential scan on (customer_id, created_at).",
-    tokens=420,
-    latency_ms=650
-)
-
-# 3. Record counterfactual GHOST BRANCH (Pruned by critic)
-step2.add_ghost_branch(
-    label="Drop and Re-create Table with Clustered Index",
-    content="Run DROP TABLE orders; CREATE TABLE orders ...",
-    ghost_reason="Critic Policy Veto: Drops production table causing complete data loss and downtime.",
-    tokens=520,
-    latency_ms=480,
-    confidence_score=0.18
-)
-
-# 4. Record winning chosen action
-step3 = step2.add_next_step(
-    node_type="TOOL_CALL",
-    label="tool: execute_sql",
-    content="CREATE INDEX CONCURRENTLY idx_orders_cust ON orders(customer_id, created_at DESC);",
-    tokens=280,
-    latency_ms=1200
-)
-
-step3.add_next_step(
-    node_type="LLM_RESPONSE",
-    label="Final Verified Response",
-    content="Applied concurrent composite index. Benchmark latency dropped from 3.8s to 2.4ms (1,500x speedup)."
-)
-
-trace.finish("COMPLETED")`;
-
-  const tsSnippet = `// GhostTRACE Node.js / TypeScript SDK (sdk/node/ghosttrace.ts)
+  const tsSnippet = `// GhostTRACE TypeScript SDK
 import { GhostTraceClient } from "./sdk/node/ghosttrace";
 
 const client = new GhostTraceClient("http://localhost:3000");
-
-// 1. Start streaming trace session
 const session = await client.startTrace({
-  title: "Cloud Kubernetes Auto-Healer Agent",
-  agentName: "K8s-Remediation-Bot",
-  model: "claude-3-7-sonnet",
-  tags: ["typescript", "k8s", "devops"]
+  title: "Cloud Kubernetes Auto-Healer",
+  model: "claude-3-7-sonnet"
 });
-
-// 2. Add prompt and thinking step
-const step1 = await session.addStep({
-  type: "USER_PROMPT",
-  label: "Alert: OOMKilled Pod",
-  content: "Pod payment-service crashed with OOMKilled (Exit Code 137)."
-});
-
-const step2 = await step1.addNextStep({
-  type: "THINKING",
-  label: "Heap Analysis",
-  content: "Investigating JVM heap spike during bulk refunds."
-});
-
-// 3. Add speculative pruned branch (Ghost Branch)
-await step2.addGhostBranch({
-  label: "Speculative Deployment Rollback",
-  content: "Roll back to previous revision v1.2 without investigating heap.",
-  ghostReason: "Critic Veto: Rollback breaks active database migrations.",
-  tokens: 490,
-  latencyMs: 380
-});
-
-// 4. Chosen action and response
-const step3 = await step2.addNextStep({
-  type: "TOOL_CALL",
-  label: "tool: kubectl patch",
-  content: "kubectl patch deployment payment-service --limits memory=2Gi"
-});
-
-await step3.addNextStep({
-  type: "LLM_RESPONSE",
-  label: "Resolved",
-  content: "Memory limit scaled to 2Gi. Pod restarted healthy."
-});
-
 await session.finish("COMPLETED");`;
 
   const otelSnippet = `# Standard OpenTelemetry (OTel / OTLP) Configuration
-# Any standard OpenTelemetry SDK or Collector can export traces directly to GhostTRACE.
-
-# 1. Environment Variable for OTLP HTTP Exporter:
 export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:3000/v1/traces"
 export OTEL_EXPORTER_OTLP_PROTOCOL="http/json"
-export OTEL_SERVICE_NAME="fraud-detection-swarm"
-
-# 2. Python OpenTelemetry Setup:
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-provider = TracerProvider()
-processor = BatchSpanProcessor(OTLPSpanExporter(endpoint="http://localhost:3000/v1/traces"))
-provider.add_span_processor(processor)
-trace.set_tracer_provider(provider)
-
-tracer = trace.get_tracer("agent-tracer")
-
-with tracer.start_as_current_span("User Transaction Check") as root_span:
-    # Set attributes
-    root_span.set_attribute("gen_ai.prompt", "Evaluate transaction #TX-9982 ($45,000)")
-    
-    # Mark a counterfactual pruned branch with ghost=True:
-    with tracer.start_as_current_span("Ghost: Auto-Block Account") as ghost_span:
-        ghost_span.set_attribute("ghost", True)
-        ghost_span.set_attribute("ghost.reason", "Critic Veto: VIP customer false-positive threshold.")
-    
-    # Record winning step:
-    with tracer.start_as_current_span("tool: request_dual_review") as tool_span:
-        tool_span.set_attribute("tool.name", "request_dual_review")`;
+export OTEL_SERVICE_NAME="fraud-detection-swarm"`;
 
   const langgraphSnippet = `# LangChain & LangGraph Ingestion Callback
 import requests
 
-GHOSTTRACE_LANGCHAIN_ENDPOINT = "http://localhost:3000/api/ingest/langchain"
+GHOSTTRACE_ENDPOINT = "http://localhost:3000/api/ingest/langchain"
+# POST Run object directly to GhostTRACE:
+res = requests.post(GHOSTTRACE_ENDPOINT, json=run_payload)`;
 
-# Simply post your LangChain / LangGraph execution Run object to GhostTRACE:
-run_payload = {
-    "name": "Market Due Diligence Graph",
-    "run_type": "chain",
-    "inputs": {"input": "Analyze TSMC wafer fabrication market guidance for Q3"},
-    "extra": {
-        "metadata": {
-            "model": "claude-3-7-sonnet",
-            "agent_name": "EquityResearchAgent"
-        }
-    },
-    "child_runs": [
-        {
-            "id": "step-1",
-            "name": "tool: search_sec_filings",
-            "run_type": "tool",
-            "inputs": {"query": "TSMC 10-Q Q3 Gross Margin"},
-            "outputs": {"output": "Reported 54.2% gross margin in official 10-Q filing."}
-        },
-        {
-            "id": "ghost-1",
-            "parent_run_id": "step-1",
-            "name": "Ghost: Extrapolate Unverified Rumor from Forum",
-            "run_type": "llm",
-            "inputs": {"prompt": "Rumor claims 62% margin surge next quarter."},
-            "extra": {
-                "metadata": {
-                    "is_ghost": True,
-                    "ghost_reason": "Zero-Trust Fact Check: Unsubstantiated blog hearsay; discarded."
-                }
-            }
-        },
-        {
-            "id": "step-2",
-            "parent_run_id": "step-1",
-            "name": "Verified Synthesis",
-            "run_type": "llm",
-            "outputs": {"output": "TSMC affirmed 53.5-55.5% guidance with high confidence."}
-        }
-    ]
-}
-
-res = requests.post(GHOSTTRACE_LANGCHAIN_ENDPOINT, json=run_payload)
-print(f"Ingested into GhostTRACE: {res.json()}")`;
-
-  const curlSnippet = `# 1. Stream trace via REST API:
-curl -X POST http://localhost:3000/api/traces/stream \\
+  const curlSnippet = `curl -X POST http://localhost:3000/api/ingest/langchain \\
   -H "Content-Type: application/json" \\
-  -d '{"event":"TRACE_START","data":{"title":"cURL Agent Trace","agentName":"cURL-Bot","model":"gpt-4o"}}'
+  -d '{"name": "cURL Agent Run", "inputs": {"input": "Ping"}}'`;
 
-# 2. Ingest OpenTelemetry JSON directly:
-curl -X POST http://localhost:3000/api/ingest/otel \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "resourceSpans": [{
-      "resource": { "attributes": [{ "key": "service.name", "value": "curl-agent" }] },
-      "scopeSpans": [{
-        "spans": [
-          { "spanId": "s1", "name": "User Objective", "attributes": [{ "key": "gen_ai.prompt", "value": "Run sanity test" }] },
-          { "spanId": "s2", "parentSpanId": "s1", "name": "Ghost: Risky Plan", "attributes": [{ "key": "ghost", "value": true }, { "key": "ghost.reason", "value": "Policy veto" }] },
-          { "spanId": "s3", "parentSpanId": "s1", "name": "Verified Output", "attributes": [{ "key": "gen_ai.completion", "value": "Verified successfully." }] }
-        ]
-      }]
-    }]
-  }'`;
-
-  const mcpSnippet = `# 🌐 MODEL CONTEXT PROTOCOL (MCP) INGESTION & TRACING
-# Point Claude Desktop, Cursor, Cline, or custom MCP Agents directly to GhostTRACE!
-# Ingestion Endpoint: http://localhost:3000/api/ingest/mcp
-
-# 1. Claude Desktop Configuration (claude_desktop_config.json):
-{
-  "mcpServers": {
-    "ghosttrace-bridge": {
-      "command": "npx",
-      "args": ["-y", "ghosttrace-mcp-proxy", "--ingest", "http://localhost:3000/api/ingest/mcp"]
-    },
-    "postgres-db": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/prod_db"]
-    }
-  }
-}
-
-# 2. Python MCP Ingestion Payload:
-import requests
-
-payload = {
-    "clientName": "Claude Desktop (MCP Host)",
-    "serverName": "postgres-mcp-server",
-    "model": "claude-3-7-sonnet",
-    "prompt": "Optimize transactions table and add composite index safely",
-    "exchanges": [
-        {
-            "method": "tools/call",
-            "request": {"name": "explain_query", "arguments": {"sql": "SELECT * FROM transactions"}},
-            "response": {"plan": "Seq Scan detected: missing index on (user_id, created_at)"},
-            "latencyMs": 140
-        },
-        {
-            "method": "tools/call",
-            "request": {"name": "raw_exec", "arguments": {"sql": "DROP TABLE transactions"}},
-            "isGhost": True,
-            "ghostReason": "Critic Policy Veto: Destructive table drop blocked on production replica",
-            "latencyMs": 95
-        },
-        {
-            "method": "tools/call",
-            "request": {"name": "create_index", "arguments": {"sql": "CREATE INDEX CONCURRENTLY idx_tx ON transactions(user_id, created_at DESC);"}},
-            "response": {"status": "SUCCESS"},
-            "latencyMs": 620
-        }
-    ]
-}
-
-res = requests.post("http://localhost:3000/api/ingest/mcp", json=payload)
-print(f"Ingested MCP Trace ID: {res.json()['traceId']}")
-
-# 3. Direct Test via cURL:
-curl -X POST http://localhost:3000/api/ingest/mcp \\
-  -H "Content-Type: application/json" \\
-  -d '{"sample": true}'`;
+  const mcpSnippet = `# Model Context Protocol (MCP) Ingestion
+Endpoint: http://localhost:3000/api/ingest/mcp
+Send exchanges array with tool calls and optional ghost branch annotations.`;
 
   const getActiveCode = () => {
     switch (activeTab) {
@@ -369,6 +319,7 @@ curl -X POST http://localhost:3000/api/ingest/mcp \\
       case "otel": return otelSnippet;
       case "langgraph": return langgraphSnippet;
       case "curl": return curlSnippet;
+      default: return "";
     }
   };
 
@@ -378,257 +329,9 @@ curl -X POST http://localhost:3000/api/ingest/mcp \\
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleTestIngest = async () => {
-    try {
-      setTesting(true);
-      setTestSuccess(null);
-
-      let createdTraceId = "";
-
-      if (activeTab === "proxy") {
-        // Send request through Zero-Code OpenAI-compatible Proxy
-        const res = await fetch("/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-ghosttrace-internal": "true",
-            "x-ghosttrace-title": "Zero-Code OpenAI Proxy Test Run",
-            "x-ghosttrace-agent": "ZeroCode-Proxy-Bot",
-          },
-          body: JSON.stringify({
-            model: "deepseek-r1",
-            messages: [
-              {
-                role: "user",
-                content: "Validate the zero-code OpenAI proxy endpoint and verify reasoning chain capture.",
-              },
-            ],
-          }),
-        });
-        const traceHeaderId = res.headers.get("x-ghosttrace-id");
-        if (traceHeaderId) {
-          createdTraceId = traceHeaderId;
-        } else {
-          const proxyData = await res.json();
-          createdTraceId = proxyData.id?.replace("chatcmpl-", "") || "";
-        }
-      } else if (activeTab === "mcp") {
-        // Send sample MCP payload to ingest endpoint
-        const res = await fetch("/api/ingest/mcp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-ghosttrace-internal": "true" },
-          body: JSON.stringify({ sample: true }),
-        });
-        const data = await res.json();
-        createdTraceId = data.traceId;
-      } else if (activeTab === "otel") {
-        // Send real OpenTelemetry payload
-        const otelPayload = {
-          resourceSpans: [
-            {
-              resource: {
-                attributes: [
-                  { key: "service.name", value: { stringValue: "Live-OTel-Ingested-Agent" } },
-                  { key: "gen_ai.request.model", value: { stringValue: "claude-3-7-sonnet" } },
-                ],
-              },
-              scopeSpans: [
-                {
-                  spans: [
-                    {
-                      spanId: "otel-root",
-                      name: "User Directive (OTel)",
-                      attributes: [
-                        { key: "gen_ai.prompt", value: { stringValue: "Verify zero-trust authentication payload" } },
-                      ],
-                    },
-                    {
-                      spanId: "otel-ghost",
-                      parentSpanId: "otel-root",
-                      name: "Ghost: Bypass Token Validation via Wildcard Secret",
-                      attributes: [
-                        { key: "ghost", value: { boolValue: true } },
-                        { key: "ghost.reason", value: { stringValue: "Critic Security Guardrail: Prohibits wildcard secret match in production." } },
-                        { key: "gen_ai.completion", value: { stringValue: "Speculatively bypass signature check..." } },
-                      ],
-                    },
-                    {
-                      spanId: "otel-verified",
-                      parentSpanId: "otel-root",
-                      name: "Verified: Strict RS256 Signature Audit",
-                      attributes: [
-                        { key: "gen_ai.completion", value: { stringValue: "Audited public key JWKS thumbprint. Signature valid." } },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        };
-
-        const res = await fetch("/api/ingest/otel", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-ghosttrace-internal": "true" },
-          body: JSON.stringify(otelPayload),
-        });
-        const data = await res.json();
-        createdTraceId = data.traceId;
-      } else if (activeTab === "langgraph") {
-        const langPayload = {
-          name: "LangGraph Multi-Step Reasoning Run",
-          run_type: "chain",
-          inputs: { input: "Investigate AWS CloudTrail Anomalous API Calls" },
-          extra: {
-            metadata: {
-              model: "deepseek-r1-distill",
-              agent_name: "SecOps-Swarm",
-            },
-          },
-          child_runs: [
-            {
-              id: "lg-1",
-              name: "tool: cloudtrail_lookup",
-              run_type: "tool",
-              inputs: { eventName: "AuthorizeSecurityGroupIngress" },
-              outputs: { output: "Found 0.0.0.0/0 ingress opened on port 22." },
-            },
-            {
-              id: "lg-ghost",
-              parent_run_id: "lg-1",
-              name: "Ghost: Blindly Delete VPC Security Group",
-              run_type: "llm",
-              extra: {
-                metadata: {
-                  is_ghost: true,
-                  ghost_reason: "Critic Veto: Deleting shared security group breaks active production RDS connections.",
-                },
-              },
-            },
-            {
-              id: "lg-2",
-              parent_run_id: "lg-1",
-              name: "Revoke Security Group Rule Concurrently",
-              run_type: "tool",
-              outputs: { output: "Revoked 0.0.0.0/0 rule on port 22 without breaking existing RDS connectivity." },
-            },
-          ],
-        };
-
-        const res = await fetch("/api/ingest/langchain", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-ghosttrace-internal": "true" },
-          body: JSON.stringify(langPayload),
-        });
-        const data = await res.json();
-        createdTraceId = data.traceId;
-      } else {
-        // Standard Stream API (Python / TS / cURL)
-        const streamHeaders = { "Content-Type": "application/json", "x-ghosttrace-internal": "true" };
-        const startRes = await fetch("/api/traces/stream", {
-          method: "POST",
-          headers: streamHeaders,
-          body: JSON.stringify({
-            event: "TRACE_START",
-            data: {
-              title: `Live ${activeTab.toUpperCase()} SDK Agent Session`,
-              agentName: `${activeTab.toUpperCase()}-Agent`,
-              model: "deepseek-r1-distill",
-              tags: [activeTab, "live-sdk", "ghost-pruning"],
-              description: `Real-time execution trace ingested via ${activeTab} client.`,
-            },
-          }),
-        });
-        const startData = await startRes.json();
-        createdTraceId = startData.traceId;
-
-        // Root
-        await fetch("/api/traces/stream", {
-          method: "POST",
-          headers: streamHeaders,
-          body: JSON.stringify({
-            event: "NODE_ADDED",
-            traceId: createdTraceId,
-            data: {
-              nodeId: "stream-n1",
-              stepIndex: 1,
-              type: "USER_PROMPT",
-              label: "User Directive via SDK",
-              content: "Analyze payment latency spike and isolate failing replica.",
-              tokens: 45,
-              latencyMs: 12,
-            },
-          }),
-        });
-
-        // Ghost
-        await fetch("/api/traces/stream", {
-          method: "POST",
-          headers: streamHeaders,
-          body: JSON.stringify({
-            event: "NODE_ADDED",
-            traceId: createdTraceId,
-            data: {
-              nodeId: "stream-ghost",
-              parentNodeId: "stream-n1",
-              stepIndex: 2,
-              type: "GHOST_REJECTED",
-              label: "Ghost: Hard Reboot Master DB Node",
-              content: "Proposed executing SIGKILL on active PostgreSQL primary instance.",
-              isGhost: true,
-              ghostReason: "Critic Guardrail: High blast radius action violates safe recovery policy.",
-              tokens: 650,
-              latencyMs: 780,
-            },
-          }),
-        });
-
-        // Final
-        await fetch("/api/traces/stream", {
-          method: "POST",
-          headers: streamHeaders,
-          body: JSON.stringify({
-            event: "NODE_ADDED",
-            traceId: createdTraceId,
-            data: {
-              nodeId: "stream-n2",
-              parentNodeId: "stream-n1",
-              stepIndex: 3,
-              type: "LLM_RESPONSE",
-              label: "Graceful Connection Drain & Failover",
-              content: "Drained connections to degraded replica and promoted standby. Latency normalized to 14ms.",
-              tokens: 390,
-              latencyMs: 510,
-            },
-          }),
-        });
-
-        // End
-        await fetch("/api/traces/stream", {
-          method: "POST",
-          headers: streamHeaders,
-          body: JSON.stringify({
-            event: "TRACE_END",
-            traceId: createdTraceId,
-            data: { status: "COMPLETED" },
-          }),
-        });
-      }
-
-      setTestSuccess(`Successfully ingested live trace (${createdTraceId})!`);
-      if (onTraceCreated && createdTraceId) {
-        onTraceCreated(createdTraceId);
-      }
-    } catch (err: any) {
-      console.error("Test stream error:", err);
-    } finally {
-      setTesting(false);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="w-[740px] max-w-full bg-[#0a0f1d] border border-slate-800 rounded-2xl p-6 shadow-2xl relative max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+      <div className="w-[840px] max-w-full bg-[#0a0f1d] border border-slate-800 rounded-2xl p-6 shadow-2xl relative max-h-[92vh] flex flex-col">
         <button
           onClick={onClose}
           className="absolute top-5 right-5 p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
@@ -636,29 +339,50 @@ curl -X POST http://localhost:3000/api/ingest/mcp \\
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-3 mb-5">
+        {/* Modal Header */}
+        <div className="flex items-center gap-3 mb-5 shrink-0">
           <div className="p-3 rounded-xl bg-cyan-950/70 border border-cyan-500/50 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]">
             <Terminal className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2">
-              Agent Framework SDK &amp; Ingestion Protocols
+              Agent Framework SDK &amp; Live Ingestion Playground
               <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-800">
-                OTel Ready
+                OTel &amp; MCP Ingest
               </span>
             </h3>
             <p className="text-xs text-slate-400">
-              Stream live execution paths &amp; pruned ghost branches from Python, TypeScript, OpenTelemetry, or LangGraph.
+              Integrate LangChain, OpenTelemetry, Anthropic MCP, or dispatch custom payloads in real-time.
             </p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-800 gap-4 mb-4 text-xs font-medium overflow-x-auto pb-1">
-          {(["proxy", "autoinstrument", "mcp", "python", "typescript", "otel", "langgraph", "curl"] as const).map((tab) => (
+        <div className="flex border-b border-slate-800 gap-4 mb-4 text-xs overflow-x-auto shrink-0 pb-0.5">
+          <button
+            onClick={() => setActiveTab("playground")}
+            className={`pb-2.5 border-b-2 font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              activeTab === "playground"
+                ? "border-emerald-400 text-emerald-300"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <FlaskConical className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Interactive Playground</span>
+          </button>
+          {[
+            "proxy",
+            "autoinstrument",
+            "mcp",
+            "otel",
+            "langgraph",
+            "python",
+            "typescript",
+            "curl",
+          ].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => setActiveTab(tab as any)}
               className={`pb-2.5 border-b-2 capitalize transition-all whitespace-nowrap ${
                 activeTab === tab
                   ? "border-cyan-400 text-cyan-300 font-semibold"
@@ -668,90 +392,190 @@ curl -X POST http://localhost:3000/api/ingest/mcp \\
               {tab === "proxy"
                 ? "⚡ Zero-Code Proxy"
                 : tab === "autoinstrument"
-                ? "🐍 Auto-Instrument (Patch)"
+                ? "🐍 Auto-Patch"
                 : tab === "mcp"
-                ? "🌐 Anthropic MCP"
+                ? "Anthropic MCP"
                 : tab === "otel"
-                ? "OpenTelemetry (OTel)"
+                ? "OTel (OTLP)"
                 : tab === "langgraph"
-                ? "LangChain / LangGraph"
+                ? "LangChain"
                 : tab === "typescript"
-                ? "TypeScript / Node"
+                ? "Node.js"
                 : tab}
             </button>
           ))}
         </div>
 
-        {/* Code Box */}
-        <div className="relative flex-1 bg-black/90 border border-slate-800 rounded-xl overflow-hidden mb-4">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-900/70 text-[11px] text-slate-400 font-mono">
-            <span>
-              {activeTab === "proxy"
-                ? "OpenAI Client Proxy Config (Python / TS)"
-                : activeTab === "autoinstrument"
-                ? "sdk/python/ghosttrace.py (Monkeypatch)"
-                : activeTab === "mcp"
-                ? "claude_desktop_config.json / MCP Client"
-                : activeTab === "curl"
-                ? "bash (cURL)"
-                : activeTab === "otel"
-                ? "opentelemetry_config.py"
-                : activeTab === "typescript"
-                ? "sdk/node/ghosttrace.ts"
-                : activeTab === "langgraph"
-                ? "langchain_callback.py"
-                : "sdk/python/ghosttrace.py"}
-            </span>
-            <button
-              onClick={copyCode}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded hover:bg-slate-800 text-slate-300 hover:text-cyan-300 transition-colors"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? "Copied!" : "Copy Snippet"}</span>
-            </button>
+        {/* Main Body */}
+        {activeTab === "playground" ? (
+          <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-hidden">
+            {/* Playground Toolbar */}
+            <div className="flex items-center justify-between bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 shrink-0 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 font-medium">Protocol Preset:</span>
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => handleSelectPreset(e.target.value as any)}
+                  className="bg-black/60 border border-slate-700 rounded px-2.5 py-1 text-slate-200 font-medium outline-none"
+                >
+                  <option value="langchain">LangGraph Multi-Step Chain</option>
+                  <option value="otel">OpenTelemetry JSON Spans</option>
+                  <option value="mcp">Anthropic MCP Tool Call</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 font-mono text-[11px]">
+                  Endpoint: <span className="text-cyan-400">{playgroundEndpoint}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Editable JSON Editor */}
+            <div className="flex-1 min-h-0 flex flex-col bg-black/90 border border-slate-800 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-800 bg-slate-900/60 text-[11px] text-slate-400 font-mono shrink-0">
+                <span className="flex items-center gap-1.5">
+                  <Code2 className="w-3.5 h-3.5 text-cyan-400" />
+                  Editable Ingestion Request Body (JSON)
+                </span>
+                <span className="text-[10px] text-slate-500">Edit payload before dispatching</span>
+              </div>
+              <textarea
+                value={playgroundJson}
+                onChange={(e) => {
+                  setPlaygroundJson(e.target.value);
+                  setJsonError(null);
+                }}
+                className="flex-1 w-full bg-transparent p-3.5 font-mono text-xs text-cyan-200/90 outline-none resize-none leading-relaxed overflow-y-auto selection:bg-cyan-900/50"
+                spellCheck={false}
+              />
+            </div>
+
+            {/* Validation / Result Bar */}
+            {jsonError && (
+              <div className="p-2.5 rounded-lg bg-rose-950/70 border border-rose-800 text-xs text-rose-300 shrink-0">
+                {jsonError}
+              </div>
+            )}
+
+            {playgroundResponse && (
+              <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs flex items-center justify-between shrink-0 font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px]">
+                    201 CREATED
+                  </span>
+                  <span className="text-slate-300">
+                    Trace ID: <code className="text-cyan-300 font-bold">{playgroundResponse.traceId}</code>
+                  </span>
+                  {playgroundResponse.ghostsDetected !== undefined && (
+                    <span className="text-purple-300">
+                      • {playgroundResponse.ghostsDetected} ghost branch detected
+                    </span>
+                  )}
+                </div>
+
+                {createdTraceId && (
+                  <button
+                    onClick={() => {
+                      if (onTraceCreated) onTraceCreated(createdTraceId);
+                      onClose();
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] transition-colors"
+                  >
+                    <span>View on Canvas</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Playground Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800 shrink-0">
+              <span className="text-xs text-slate-500">
+                Dispatches live HTTP POST to local ingest pipeline.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDispatchPlayground}
+                  disabled={testing}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.35)] disabled:opacity-50"
+                >
+                  {testing ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>Dispatch Ingestion Payload</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
-          <pre className="p-4 text-xs font-mono text-cyan-200/90 overflow-y-auto max-h-72 leading-relaxed">
-            {getActiveCode()}
-          </pre>
-        </div>
+        ) : (
+          /* Code Documentation View */
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="relative flex-1 bg-black/90 border border-slate-800 rounded-xl overflow-hidden mb-4 flex flex-col">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-900/70 text-[11px] text-slate-400 font-mono shrink-0">
+                <span>
+                  {activeTab === "proxy"
+                    ? "OpenAI Client Proxy Config (Python / TS)"
+                    : activeTab === "autoinstrument"
+                    ? "sdk/python/ghosttrace.py (Monkeypatch)"
+                    : activeTab === "mcp"
+                    ? "claude_desktop_config.json / MCP Client"
+                    : activeTab === "curl"
+                    ? "bash (cURL)"
+                    : activeTab === "otel"
+                    ? "opentelemetry_config.py"
+                    : activeTab === "typescript"
+                    ? "sdk/node/ghosttrace.ts"
+                    : activeTab === "langgraph"
+                    ? "langchain_callback.py"
+                    : "sdk/python/ghosttrace.py"}
+                </span>
+                <button
+                  onClick={copyCode}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded hover:bg-slate-800 text-slate-300 hover:text-cyan-300 transition-colors"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? "Copied!" : "Copy Snippet"}</span>
+                </button>
+              </div>
+              <pre className="flex-1 p-4 text-xs font-mono text-cyan-200/90 overflow-y-auto leading-relaxed">
+                {getActiveCode()}
+              </pre>
+            </div>
 
-        {/* Live Test Trigger */}
-        <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
-          <span className="text-slate-400 text-[11px]">
-            Active Endpoint:{" "}
-            <code className="text-cyan-400 font-mono">
-              {activeTab === "otel" ? "/v1/traces (OTLP HTTP)" : activeTab === "langgraph" ? "/api/ingest/langchain" : "/api/traces/stream"}
-            </code>
-          </span>
+            <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-xs shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("playground");
+                  if (activeTab === "otel") handleSelectPreset("otel");
+                  else if (activeTab === "mcp") handleSelectPreset("mcp");
+                  else handleSelectPreset("langchain");
+                }}
+                className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 transition-colors font-semibold"
+              >
+                <FlaskConical className="w-3.5 h-3.5" />
+                <span>Test this protocol in Interactive Playground →</span>
+              </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleTestIngest}
-              disabled={testing}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium transition-all shadow-[0_0_12px_rgba(6,182,212,0.35)] disabled:opacity-50"
-            >
-              {testing ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Send className="w-3.5 h-3.5" />
-              )}
-              <span>Dispatch Live Test ({activeTab.toUpperCase()})</span>
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-
-        {testSuccess && (
-          <div className="mt-3 p-2.5 rounded-lg bg-emerald-950/70 border border-emerald-700/60 text-xs text-emerald-300 flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{testSuccess} Trace is now visible in the explorer!</span>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
       </div>

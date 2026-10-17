@@ -7,6 +7,7 @@ import {
   generateIncidentPostMortemMarkdown,
   RcaReport,
 } from "@/lib/rca-engine";
+import { sanitizePiiText } from "@/lib/pii-sanitizer";
 import {
   X,
   AlertOctagon,
@@ -60,14 +61,16 @@ export function RcaPostMortemModal({
   };
 
   const copyMarkdown = () => {
-    const md = generateIncidentPostMortemMarkdown(report);
+    const rawMd = generateIncidentPostMortemMarkdown(report);
+    const md = sanitizePiiText(rawMd).sanitized;
     navigator.clipboard.writeText(md);
     setCopiedMarkdown(true);
     setTimeout(() => setCopiedMarkdown(false), 2000);
   };
 
   const downloadMarkdown = () => {
-    const md = generateIncidentPostMortemMarkdown(report);
+    const rawMd = generateIncidentPostMortemMarkdown(report);
+    const md = sanitizePiiText(rawMd).sanitized;
     const blob = new Blob([md], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
